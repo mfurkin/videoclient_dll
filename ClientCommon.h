@@ -7,8 +7,10 @@
 
 #ifndef SRC_CLIENT_H_
 #define SRC_CLIENT_H_
+
 #define _WIN32_IE 0x0500
 #include <algorithm>
+#include <ctime>
 #include <map>
 #include  <set>
 #include <fstream>
@@ -20,7 +22,7 @@
 #include <wtypes.h>
 #include <winbase.h>
 #include <windef.h>
-#include "RequestBuilder.h"
+#include "ErrorReport.h"
 #include "server_names.h"
 /*
 typedef struct {
@@ -42,34 +44,37 @@ const std::string YUV420toYUV422_st = "YUV420toYUV422";
 
 class ClientRequest;
 
-class RequestBuilder;
+class ErrorReport;
 
 class ClientCommon{
 public:
 	static ClientCommon& getClientCommon();
-	static void deleteError(std::pair<std::string,RequestBuilder*> aPair);
+	static void deleteError(std::pair<std::string,ErrorReport*> aPair);
 	static void deleteInProgress(std::pair<std::string, ClientRequest*> aPair);
 	virtual ~ClientCommon();
-	void addError(std::string key, RequestBuilder* req);			// сообщить об ошибке
-	ClientRequest* startNewRequest(RequestBuilder& req);  		//послать новый запрос
-	void startNewRequest(std::string key, ClientRequest* req);
-	ClientRequest getRepeatRequest();									// повторить неудачный запрос
-	void deleteHandle(std::string destName);
+	void addError(std::string key, ClientRequest& request, time_t time, std::string date_st);			// сообщить об ошибке
+	void addThisError(std::string key,  ErrorReport*  report);
+//	void addPastError(std::string& key, time_t time, std::string& date_st);
+	void sendNewRequest(ClientRequest& req);  		//послать новый запрос
+	void repeatRequest();									// повторить неудачный запрос
+	int registerRequest(std::string key, ClientRequest* req);
 	int isInProgress(std::string key);
 private:
 	ClientCommon();
+	void deleteHandle(std::string destName);
 	void initConvTypeMap();
 	std::string getLogFname();
 	std::string getLogPath();
 	unsigned short getKeySize();
 	void init();
-	void addThis(const char* buf);
-	RequestBuilder getInfo(const char* buf);
+	void addThisErrorFromChar(const char* buf);
+	std::string getTimeSt(time_t* time);
+	ErrorReport getInfo(const char* buf);
 
 	HANDLE errorsMutex,inProgressMutex;
 //	std::map<std::string,ClientRequest*> readers;
 	std::map<std::string,ClientRequest*> inProgress;
-	std::map<std::string,RequestBuilder*> errors;
+	std::map<std::string,ErrorReport*> errors;
 	std::map<std::string,unsigned> convTypes;
 	std::queue<std::string> errors_queue;
 };

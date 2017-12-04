@@ -75,7 +75,7 @@ void ClientCommon::init() {
 		std::string st;
 		std::getline(readLogFile,st);
 		buf = st.c_str();
-		addThis(buf);
+		addThisErrorFromChar(buf);
 	}
 
 
@@ -90,15 +90,15 @@ int ClientCommon::isInProgress(std::string key) {
 	return result;
 }
 
-void ClientCommon::deleteError(	std::pair<std::string, RequestBuilder*> aPair) {
+void ClientCommon::deleteError(	std::pair<std::string, ErrorReport*> aPair) {
 	delete  aPair.second;
 }
 
 void ClientCommon::deleteInProgress(std::pair<std::string, ClientRequest*> aPair) {
 	delete aPair.second;
 }
-
-RequestBuilder ClientCommon::getInfo(const char* buf) {
+//<source file> <width> <height> <transform_function> <output file>
+ErrorReport ClientCommon::getInfo(const char* buf) {
 
 	const char* delims=" ";
 	char* type_st;
@@ -106,6 +106,7 @@ RequestBuilder ClientCommon::getInfo(const char* buf) {
 	time_t date;
 	unsigned short width,height,type;
 	strcpy(date_st,strtok((char*)buf,delims));
+	std::string date_st2(date_st);
 	date = getInteger(delims);
 	strcpy(source_name, getString(delims));
 	width = getInteger(delims);
@@ -113,42 +114,46 @@ RequestBuilder ClientCommon::getInfo(const char* buf) {
 	type_st = getString(delims);
 	type = convTypes[type_st];
 	strcpy(dest_name, getString(delims));
-
-	return RequestBuilder(source_name,dest_name,width,height,type,date_st,date);
+	ClientRequest req(source_name,dest_name,width,height,type);
+	return ErrorReport(req,date,date_st2);
 }
-void ClientCommon::startNewRequest(std::string key, ClientRequest* req_ptr) {
+int ClientCommon::registerRequest(std::string key, ClientRequest* req_ptr) {
+	int result;;
 	(*req_ptr).sendRequest();
 	WaitForSingleObjectEx(inProgressMutex,INFINITE,TRUE);
-	inProgress[key] = req_ptr;
+	result = !(isInProgress(key));
+	if (result)
+		inProgress[key] = req_ptr;
 	ReleaseMutex(inProgressMutex);
+	return result;
 }
-ClientRequest* ClientCommon::startNewRequest(RequestBuilder& req) {
-	ClientRequest* req_ptr = NULL;
-	if (!(req.isRun(*this)))
-		req_ptr = req.startNewRequest(*this);
-	return req_ptr;
+void ClientCommon::sendNewRequest(ClientRequest& req) {
+	req.sendRequest();
 }
 
-ClientRequest ClientCommon::getRepeatRequest() {
+void ClientCommon::repeatRequest() {
 	WaitForSingleObjectEx(errorsMutex,INFINITE,TRUE);
 	std::string st = errors_queue.front();
-	RequestBuilder* builder = errors[st];
-	ClientRequest* req_ptr = (*builder).startNewRequest(*this);
+	ErrorReport* report = errors[st];
+	(*report).sendRequest();
 	errors_queue.pop();
 	ReleaseMutex(errorsMutex);
-	return *req_ptr;
 }
 
-void ClientCommon::addThis(const char* buf) {
-	RequestBuilder req = getInfo(buf);
-	req.errorReport(*this);
+void ClientCommon::addThisErrorFromChar(const char* buf) {
+	ErrorReport req = getInfo(buf);
+	req.pastErrorReport(*this);
 }
 
-void ClientCommon::addError(std::string key, RequestBuilder* req) {
+
+void ClientCommon::addError(std::string key, ClientRequest& req, time_t curTime, std::string dateSt) {
+	ErrorReport* report = new ErrorReport(req,curTime,dateSt);
+	addThisError(key,report);
+}
+void ClientCommon::addThisError(std::string key,  ErrorReport*  report) {
 	WaitForSingleObjectEx(errorsMutex,INFINITE,TRUE);
-	errors[key] = req;
-	errors_queue.push(key);
+		errors[key] = report;
+		errors_queue.push(key);
 	ReleaseMutex(errorsMutex);
 }
 
-//<source file> <width> <height> <transform_function> <output file>

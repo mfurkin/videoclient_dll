@@ -6,9 +6,19 @@
  */
 
 #include "ClientRequest.h"
+#include "ClientCommon.h"
+// long ClientRequest::count = 0;
+ClientRequest::ClientRequest():	width(0),height(0),type(0), sourceName(std::string("empty sourceName")), destName(std::string("empty destName")),
+								engine_ptr(NULL),in_progress(0) {
+}
 
-long ClientRequest::count = 0;
-ClientRequest::ClientRequest(ClientRequest& aRequest):width(aRequest.width),height(aRequest.height),type(aRequest.type),
+ClientRequest::ClientRequest(const ClientRequest& aRequest):width(aRequest.width),height(aRequest.height),type(aRequest.type),
+															sourceName(aRequest.sourceName), destName(aRequest.destName),
+															engine_ptr(aRequest.engine_ptr),in_progress(aRequest.in_progress)
+{
+}
+/*
+ClientRequest::ClientRequest(const ClientRequest& aRequest):width(aRequest.width),height(aRequest.height),type(aRequest.type),
 															sourceName(aRequest.sourceName), destName(aRequest.destName),
 															req_ptr(aRequest.req_ptr),
 															pingReqName(aRequest.pingReqName),pingNotifyName(aRequest.pingNotifyName),
@@ -23,23 +33,24 @@ ClientRequest::ClientRequest(ClientRequest& aRequest):width(aRequest.width),heig
 															data_ptr(aRequest.data_ptr),ping_ptr(aRequest.ping_ptr),
 															bytesToWrite(aRequest.bytesToWrite),in_progress(aRequest.in_progress)
 															{
-	aRequest.setCopied();
+//	aRequest.setCopied();
 }
-ClientRequest::ClientRequest(std::string aSourceName, std::string aDestName, unsigned short aWidth, unsigned short aHeight,
-							 unsigned short aType): width(aWidth),height(aHeight),type(aType),sourceName(aSourceName),destName(aDestName),
-									 	 	 	    req_ptr(NULL) {
-	init();
 
 
-}
 ClientRequest::ClientRequest(std::string aSourceName, std::string aDestName, unsigned short aWidth, unsigned short aHeight, unsigned short aType,
-							RequestBuilder* aReqPtr): width(aWidth),height(aHeight),type(aType),sourceName(aSourceName),destName(aDestName),
+							ErrorReport* aReqPtr): width(aWidth),height(aHeight),type(aType),sourceName(aSourceName),destName(aDestName),
 													  req_ptr(aReqPtr) {
 	init();
 
 }
+*/
+ClientRequest::ClientRequest(std::string aSourceName, std::string aDestName, unsigned short aWidth, unsigned short aHeight,
+							 unsigned short aType): width(aWidth),height(aHeight),type(aType),sourceName(aSourceName),destName(aDestName),
+									 	 	 	 	engine_ptr(NULL) {
+//	init();
+}
 ClientRequest::~ClientRequest() {
-
+/*
 	if (!(copied))  {
 		closeHandle(pingReq);
 		closeHandle(pingNotify);
@@ -50,13 +61,16 @@ ClientRequest::~ClientRequest() {
 	}
 	if (req_ptr != NULL)
 		delete  req_ptr;
+		*/
 }
 
 
 void ClientRequest::sendRequest() {
 	unsigned result;
-	RequestDataStruct* req_ptr;
-	HANDLE reqFlag,reqEnabledFlag,reqMutex,reqChannel;
+//	RequestDataStruct* req_ptr;
+//	HANDLE reqFlag,reqEnabledFlag,reqMutex,reqChannel;
+	PingThreadEngine engine(width,height,type);
+/*
 	result = openEvent(EVENT_MODIFY_STATE,REQ_FLAG_NAME,&reqFlag) && openEvent(SYNCHRONIZE,REQ_ENABLED_FLAG,&reqEnabledFlag) &&
 			 openMutex(SYNCHRONIZE,REQ_MUTEX_NAME,&reqMutex) && openFileMapping(FILE_MAP_WRITE,REQ_FILE_NAME,&reqChannel);
 	if (!(result)) {
@@ -69,6 +83,16 @@ void ClientRequest::sendRequest() {
 			 std::cerr<<"Could not find server channel. error code="<<GetLastError()<<"\n";
 			 errorReport();
 		 } else {
+		 */
+/*
+	if (!(engine.findServer())) {
+		std::cerr<<"Could not find some server handles. error code="<<GetLastError()<<"\n";
+		errorReport();
+	} else
+			if (!(engine.findServerChannel())) {
+				std::cerr<<"Could not find server channel. error code="<<GetLastError()<<"\n";
+				errorReport();
+			} else {
 			 HANDLE events[2];
 			 int timeout_count;
 			 std::map<int,StatusWriter*> statusWriters;
@@ -87,7 +111,18 @@ void ClientRequest::sendRequest() {
 			 strcpy((char*)req_ptr,pingSharedMemoryName.c_str());
 			 SetEvent(reqFlag);
 			 ReleaseMutex(reqMutex);
-			 _beginthreadex(NULL,0,processRequest,this,0,NULL);
+			 */
+	if (!(engine.initServer(sourceName)))
+		currentErrorReport();
+	else {
+			engine_ptr = &engine;
+			engine.startProcessingThread(processRequest,this);
+			for (;in_progress && (result = engine.getResponseMessage());engine.waitNext()) {
+				engine.processMessage(&in_progress);
+				engine.outputMessage();
+			}
+//			 _beginthreadex(NULL,0,processRequest,this,0,NULL);
+/*
 			 SetEvent(pingReq);
 			 timeout_count = 10;
 			 initStatusWriters(statusWriters);
@@ -107,34 +142,37 @@ void ClientRequest::sendRequest() {
 					 }
 			 }
 			 deinitStatusWriters(statusWriters);
+			 */
 		}
-	}
 }
 
-void ClientRequest::errorReport() {
-	if (req_ptr == NULL)
-		req_ptr = buildRequestBuilder();
-	(*req_ptr).errorReport();
+std::string ClientRequest::getTimeSt(time_t* time) {
+	char st[25];
+	struct tm* tm_ptr = localtime(time);
+	sprintf(st,"%2d.%2d.%4d %2d:%2d:%2d",(*tm_ptr).tm_mday,(*tm_ptr).tm_mon,(*tm_ptr).tm_year,(*tm_ptr).tm_hour,(*tm_ptr).tm_min,(*tm_ptr).tm_sec);
+	return std::string(st);
 }
 
+void ClientRequest::currentErrorReport() {
+	time_t curTime = time(NULL);
+	std::string dateSt = getTimeSt(&curTime);
+	ClientCommon::getClientCommon().addError(getKey(),*this,curTime,dateSt);
+}
 /*
-HANDLE ClientRequest::writeRequest() {
-	return ClientCommon::getClientCommon().writeRequest(destName);
-}
-*/
+ErrorReport* ClientRequest::createErrorReport() {
 
-RequestBuilder* ClientRequest::buildRequestBuilder() {
 	time_t curTime = time(NULL);
 	std::string timeSt = getTimeSt(&curTime);
-	RequestBuilder* req_ptr = new RequestBuilder(sourceName,destName,width,height,type,timeSt,curTime);
+	ErrorReport* req_ptr = new ErrorReport(*this,timeSt,curTime);
+
 	return req_ptr;
 }
-
+*/
 std::string ClientRequest::generateName(std::string& first,	std::string second) {
 
 	return first.append(second);
 }
-
+/*
 void ClientRequest::init() {
 	char req_st[20];
 	int result;
@@ -160,7 +198,7 @@ void ClientRequest::init() {
 		std::cerr<<"Errors during ClientRequest initialization: error code="<<GetLastError()<<"\n";
  	inited = result;
 }
-
+*/
 unsigned __attribute__((__stdcall__)) ClientRequest::processRequest(void* p) {
 	ClientRequest* ptr = (ClientRequest*) p;
 	return (*ptr).processThisRequest();
@@ -168,25 +206,33 @@ unsigned __attribute__((__stdcall__)) ClientRequest::processRequest(void* p) {
 
 unsigned ClientRequest::processThisRequest() {
 	HANDLE fileDest = CreateFile(destName.c_str(),GENERIC_WRITE,0,NULL,CREATE_ALWAYS,FILE_FLAG_OVERLAPPED,NULL);
+	WorkingThreadEngine engine = (*engine_ptr).getWorkingThreadEngine(&in_progress);
 	if (fileDest == INVALID_HANDLE_VALUE)
 		in_progress = 0;
 	else  {
-		OVERLAPPED ovl;
-		unsigned long result,bytesToWrite;
-		unsigned frames;
-		for (receiveHeaderData(frames,bytesToWrite);in_progress && (frames--) && (result = SignalObjectAndWait(writeEnabled,writeCompleted,INFINITE,TRUE));
-			  result = WaitForSingleObjectEx(fileDest,INFINITE,TRUE))
-			if (result == WAIT_OBJECT_0) {
-				ResetEvent(writeEnabled);
+//		OVERLAPPED ovl;
+//		unsigned long result,bytesToWrite;
+		unsigned long result;
+		unsigned frames = 1;
+		for (engine.receiveHeaderData();in_progress && (frames--) &&
+															(result = engine.waitData());
+				result = WaitForSingleObjectEx(fileDest,INFINITE,TRUE))
+			if (result) {
+				engine.writeToFile(fileDest);
+				engine.releaseAccess();
+/*				ResetEvent(writeEnabled);
 				ovl.Offset = offset.LowPart;
 				ovl.OffsetHigh = offset.HighPart;
-				ovl.hEvent = this;
+				ovl.hEvent = &engine;
 				WriteFileEx(fileDest,data_ptr,bytesToWrite,&ovl,ClientRequest::writeCompletedProc);
+				*/
 			}
+		CloseHandle(fileDest);
 	}
 	return 0;
 }
 
+/*
 int ClientRequest::createEvent(long manual, long initial, std::string& name, HANDLE* ev_ptr) {
 	*ev_ptr = CreateEvent(NULL,manual,initial,name.c_str());
 	return(*ev_ptr != NULL);
@@ -207,12 +253,10 @@ int ClientRequest::createSharedMemory(std::string name, unsigned sizeLow, unsign
 	}
 	return result;
 }
+*/
 
-void ClientRequest::closeHandle(HANDLE aHandle) {
-	if (aHandle !=NULL)
-		CloseHandle(aHandle);
-}
 
+/*
 int ClientRequest::openEvent(long rights, std::string name, HANDLE* ev_ptr) {
 	*ev_ptr = OpenEvent(rights,FALSE,name.c_str());
 	return (int)*ev_ptr;
@@ -239,11 +283,9 @@ void ClientRequest::initStatusWriters(std::map<int, StatusWriter*>& writers) {
 void ClientRequest::deinitStatusWriters(std::map<int,StatusWriter*>& writers) {
 	for_each(writers.begin(),writers.end(),ClientRequest::deinitStatusWriter);
 }
+*/
 
-void ClientRequest::deinitStatusWriter(std::pair<int, StatusWriter*> aPair) {
-	delete aPair.second;
-}
-
+/*
 void __attribute__((__stdcall__)) ClientRequest::writeCompletedProc(DWORD dwErrorCode, DWORD dwNumberOfBytesTransferred,	LPOVERLAPPED lpOverlapped) {
 	ClientRequest *ptr = (ClientRequest*) (*lpOverlapped).hEvent;
 	(*ptr).checkThisWrite(dwErrorCode,dwNumberOfBytesTransferred);
@@ -267,10 +309,8 @@ void ClientRequest::receiveHeaderData(unsigned& frames, unsigned long& size) {
 		size = (*header_ptr).frame_size;
 	}
 }
+*/
 
-std::string ClientRequest::getTimeSt(time_t* time) {
-	char st[25];
-	struct tm* tm_ptr = localtime(time);
-	sprintf(st,"%2d.%2d.%4d %2d:%2d:%2d",(*tm_ptr).tm_mday,(*tm_ptr).tm_mon,(*tm_ptr).tm_year,(*tm_ptr).tm_hour,(*tm_ptr).tm_min,(*tm_ptr).tm_sec);
-	return std::string(st);
+std::string ClientRequest::getKey() {
+	return sourceName.append("->").append(destName);
 }
