@@ -28,7 +28,7 @@ public:
 //	int isRun(ClientCommon clientCommon);
 //	void sendRequest(ClientCommon& clientCommon);
 //	void sendRequest();
-
+	std::string toString();
 	void pastErrorReport(ClientCommon& clientCommon);
 /*
 	void errorReport();

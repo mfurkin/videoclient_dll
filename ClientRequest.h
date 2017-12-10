@@ -26,19 +26,24 @@
 
 class ClientCommon;
 
-// class ErrorReport;
 
 class ClientRequest {
 public:
 	ClientRequest();
 	ClientRequest(const ClientRequest& aRequest);
 	ClientRequest(std::string aSourceName, std::string aDestName, unsigned short aWidth, unsigned short aHeight, unsigned short aType);
+	virtual ~ClientRequest();
+	int registerRequest(ClientCommon& commonClient);
+	void unregisterRequest(ClientCommon& commonClient);
 //	ClientRequest(std::string aSourceName, std::string aDestName, unsigned short aWidth, unsigned short aHeight, unsigned short aType, ErrorReport* req_ptr);
 //	static VOID CALLBACK writeCompletedProc( DWORD dwErrorCode, DWORD dwNumberOfBytesTransfered, LPOVERLAPPED lpOverlapped);
 	static unsigned WINAPI processRequest(void* ptr);
-	virtual ~ClientRequest();
+	static std::string getTimeSt(time_t* time);
+	virtual std::string toString();
+	void currentErrorReport();
 	void sendRequest();
 protected:
+	std::string getConvType();
 	std::string getKey();
 private:
 	/*
@@ -48,7 +53,7 @@ private:
 	void receiveHeaderData(unsigned& frames, unsigned long& size);
 	*/
 //	static void deinitStatusWriter(std::pair<int,StatusWriter*> aPair);
-	void currentErrorReport();
+
 //	HANDLE writeRequest();
 	unsigned processThisRequest();
 	/*
@@ -63,7 +68,7 @@ private:
 //	void setCopied();
 //	void init();
 //	ErrorReport*  createErrorReport();
-	std::string getTimeSt(time_t* time);
+//	static std::string getTimeSt(time_t* time);
 	unsigned short width,  height, type;
 	std::string sourceName, destName;
 	PingThreadEngine* engine_ptr;
@@ -80,8 +85,5 @@ private:
 	volatile int in_progress,copied,inited;
 	*/
 };
-/*
-extern "C" __declspec(dllexport) void sendRequest();
-extern "C" __declspec(dllexport) void errorReport();
-*/
+
 #endif /* CLIENTREQUEST_H_ */

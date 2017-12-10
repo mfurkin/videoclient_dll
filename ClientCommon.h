@@ -16,12 +16,14 @@
 #include <fstream>
 #include <ios>
 #include <iostream>
+#include <iterator>
 #include <shlobj.h>
 #include <queue>
 #include <string>
 #include <wtypes.h>
 #include <winbase.h>
 #include <windef.h>
+#include <windows.h>
 #include "ErrorReport.h"
 #include "server_names.h"
 /*
@@ -35,13 +37,14 @@ typedef struct {
 	char date_st[15];
 	time_t date;
 } LoggingDataStruct;
-*/
+
 const std::string YUV420toRGB24_st="YUV420toRGB24";
 const std::string YUV422toRGB24_st="YUV422toRGB24";
 const std::string RGB24toYUV420_st = "RGB24toYUV420";
 const std::string RGB24toYUV422_st = "RGB24toYUV422";
 const std::string YUV420toYUV422_st = "YUV420toYUV422";
 
+*/
 class ClientRequest;
 
 class ErrorReport;
@@ -51,24 +54,31 @@ public:
 	static ClientCommon& getClientCommon();
 	static void deleteError(std::pair<std::string,ErrorReport*> aPair);
 	static void deleteInProgress(std::pair<std::string, ClientRequest*> aPair);
+//	static void saveThisError(std::string key);
+	unsigned getTypeId(std::string convSt);
 	virtual ~ClientCommon();
 	void addError(std::string key, ClientRequest& request, time_t time, std::string date_st);			// сообщить об ошибке
 	void addThisError(std::string key,  ErrorReport*  report);
-//	void addPastError(std::string& key, time_t time, std::string& date_st);
+	int isErrorQueueEmpty();
 	void sendNewRequest(ClientRequest& req);  		//послать новый запрос
 	void repeatRequest();									// повторить неудачный запрос
 	int registerRequest(std::string key, ClientRequest* req);
+	void unregisterRequest(std::string key);
 	int isInProgress(std::string key);
+	void saveState();
+	std::string getConvTypeSt(int type);
+	static void logPtr(const char* msg, unsigned ptr);
 private:
 	ClientCommon();
-	void deleteHandle(std::string destName);
+//	void deleteHandle(std::string destName);
 	void initConvTypeMap();
+	int makeSureFileExists(const char* fname, int isFile);
 	std::string getLogFname();
 	std::string getLogPath();
 	unsigned short getKeySize();
 	void init();
 	void addThisErrorFromChar(const char* buf);
-	std::string getTimeSt(time_t* time);
+//	std::string getTimeSt(time_t* time);
 	ErrorReport getInfo(const char* buf);
 
 	HANDLE errorsMutex,inProgressMutex;
@@ -76,7 +86,15 @@ private:
 	std::map<std::string,ClientRequest*> inProgress;
 	std::map<std::string,ErrorReport*> errors;
 	std::map<std::string,unsigned> convTypes;
-	std::queue<std::string> errors_queue;
+//	std::queue<std::string> errors_queue;
+	std::deque<std::string> errors_deque;
+	static std::ostream* writeLog_ptr;
 };
-
+ClientRequest* buildClientRequest(char* params[]);
+enum { SOURCE_NAME_NUMBER=1, WIDTH_NUMBER, HEIGHT_NUMBER, TYPE_NUMBER, DEST_FILE_NUMBER };
+//<source file> <width> <height> <transform_function> <output file>
+extern "C" __declspec(dllexport) void sendRequest(char* params[]);
+extern "C" __declspec(dllexport) void repeatError();
+extern "C" __declspec(dllexport) int errorsExist();
+extern "C" __declspec(dllexport) void saveState();
 #endif /* CLIENT_H_ */

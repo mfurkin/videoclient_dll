@@ -13,7 +13,7 @@ ErrorReport::ErrorReport():ClientRequest(),errorTime(0),dateSt(std::string("empt
 ErrorReport::ErrorReport(const ErrorReport& aReport):ClientRequest(aReport),errorTime(aReport.errorTime),dateSt(aReport.dateSt) {
 }
 
-ErrorReport::ErrorReport(const ClientRequest& aRequest, time_t aTime,	std::string& aDateSt):ClientRequest(aRequest),errorTime(aTime),dateSt(aDateSt) {
+ErrorReport::ErrorReport(const ClientRequest& aRequest, time_t aTime, std::string& aDateSt):ClientRequest(aRequest),errorTime(aTime),dateSt(aDateSt) {
 }
 
 
@@ -38,6 +38,16 @@ ErrorReport::~ErrorReport() {
 void ErrorReport::pastErrorReport(ClientCommon& clientCommon) {
 	clientCommon.addThisError(getKey(),this);
 //	clientCommon.addError(request.getKey(),request);
+}
+
+std::string ErrorReport::toString() {
+	char line[MAX_PATH];
+//	std::cerr<<"ErrorReport::toString enter\n";
+	std::string cl_req=ClientRequest::toString();
+//	std::cerr<<"ErrorReport::toString pt1\n";
+	sprintf(line,"%s %d %s",dateSt.c_str(),(unsigned)time,cl_req.c_str());
+//	std::cerr<<"ErrorReport::toString exit\n";
+	return std::string(line);
 }
 /*
 void ErrorReport::errorReport() {

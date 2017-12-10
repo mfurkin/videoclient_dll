@@ -31,7 +31,7 @@ PingThreadEngine::PingThreadEngine(unsigned short aWidth, unsigned short aHeight
 //			 &&
 //			 createSharedMemory(dataSharedMemoryName.c_str(),size,PAGE_READWRITE,PAGE_READONLY,&dataSharedMemory,&data_ptr);
 	if (result)
-		std::cerr<<"ClientRequest have been inited successfully";
+		std::cerr<<"ClientRequest have been inited successfully\n";
 	else
 		std::cerr<<"Errors during ClientRequest initialization: error code="<<GetLastError()<<"\n";
  	inited = result;
