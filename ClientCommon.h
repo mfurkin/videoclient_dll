@@ -24,6 +24,7 @@
 #include <winbase.h>
 #include <windef.h>
 #include <windows.h>
+#include "DebuggingTools.h"
 #include "ErrorReport.h"
 #include "server_names.h"
 /*
@@ -67,7 +68,7 @@ public:
 	int isInProgress(std::string key);
 	void saveState();
 	std::string getConvTypeSt(int type);
-	static void logPtr(const char* msg, unsigned ptr);
+
 private:
 	ClientCommon();
 //	void deleteHandle(std::string destName);

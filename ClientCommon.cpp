@@ -105,28 +105,29 @@ void ClientCommon::init() {
 	std::filebuf fb;
 	const char* buf;
 	initConvTypeMap();
-//	std::cerr<<"ClientCommon::init pt1 logFname="<<logFname<<"\n";
+	std::cerr<<"ClientCommon::init pt1 logFname="<<logFname<<"\n";
 	if (makeSureFileExists(logFname.c_str(),TRUE)) {
-//		std::cerr<<"ClientCommon::init pt2\n";
+		std::cerr<<"ClientCommon::init pt2\n";
 		fb.open(logFname.c_str(),std::ios::in);
 		std::istream readLogFile(&fb);
-//		std::cerr<<"ClientCommon::init pt3\n";
+		std::cerr<<"ClientCommon::init pt3\n";
 		for(;(!(readLogFile.eof()));) {
 			std::string st;
-//			std::cerr<<"ClientCommon::init pt4\n";
+			std::cerr<<"ClientCommon::init pt4\n";
 			std::getline(readLogFile,st);
-//			std::cerr<<"ClientCommon::init pt4.1 st="<<st<<"\n";
+			std::cerr<<"ClientCommon::init pt4.1 st="<<st<<"\n";
 			if (st.empty())
 				break;
-//			std::cerr<<"ClientCommon::init pt5\n";
+			std::cerr<<"ClientCommon::init pt5\n";
 			buf = st.c_str();
+			std::cerr<<"ClientCommon::init pt5.1 st="<<st<<"\n";
 			addThisErrorFromChar(buf);
-//			std::cerr<<"ClientCommon::init pt6\n";
+			std::cerr<<"ClientCommon::init pt6\n";
 		}
-//		std::cerr<<"ClientCommon::init pt7\n";
+		std::cerr<<"ClientCommon::init pt7\n";
 		fb.close();
 	}
-//	std::cerr<<"ClientCommon::init exit\n";
+	std::cerr<<"ClientCommon::init exit\n";
 }
 
 int ClientCommon::isInProgress(std::string key) {
@@ -136,11 +137,6 @@ int ClientCommon::isInProgress(std::string key) {
 	result = (inProgress.find(key) != inProgress.end());
 	ReleaseMutex(inProgressMutex);
 	return result;
-}
-void ClientCommon::logPtr(const char* msg, unsigned ptr) {
-	char st[MAX_PATH];
-	sprintf(st,"%s ptr:%0x\n",msg,ptr);
-	std::cerr<<st;
 }
 
 void ClientCommon::deleteError(	std::pair<std::string, ErrorReport*> aPair) {
@@ -188,7 +184,7 @@ ErrorReport ClientCommon::getInfo(const char* buf) {
 
 int ClientCommon::registerRequest(std::string key, ClientRequest* req_ptr) {
 	int result;;
-	(*req_ptr).sendRequest();
+//	(*req_ptr).sendRequest();
 	WaitForSingleObjectEx(inProgressMutex,INFINITE,TRUE);
 	result = !(isInProgress(key));
 	if (result)
@@ -354,7 +350,7 @@ void ClientCommon::saveState() {
 		ErrorReport* ptr = errors[curKey];
 //		ErrorReport* ptr = errors[*it_errors++];
 		std::cerr<<"savestate pt8\n";
-		ClientCommon::logPtr("ClientCommon::saveState ptr=",(unsigned)ptr);
+		DebuggingTools::logPtr("ClientCommon::saveState ptr=",(unsigned)ptr);
 //		std::cerr<<"savestate pt8.1\n";
 		writeLogFile<<(*ptr).toString()<<"\n";
 //		std::cerr<<"savestate pt9\n";

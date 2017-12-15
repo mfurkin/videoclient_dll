@@ -31,7 +31,7 @@ ClientRequest::ClientRequest(std::string aSourceName, std::string aDestName, uns
 //	init();
 }
 ClientRequest::~ClientRequest() {
-	ClientCommon::logPtr("ClientRequest dtor, this:",(unsigned)this);
+	DebuggingTools::logPtr("ClientRequest dtor, this:",(unsigned)this);
 /*
 	if (!(copied))  {
 		closeHandle(pingReq);
@@ -95,9 +95,9 @@ void ClientRequest::sendRequest() {
 			 ReleaseMutex(reqMutex);
 			 */
 	if (!(engine.initServer(sourceName))) {
-//		std::cerr<<"ClientRequest::sendRequest before currentErrorReport call\n";
+		std::cerr<<"ClientRequest::sendRequest before currentErrorReport call\n";
 		currentErrorReport();
-//		std::cerr<<"ClientRequest::sendRequest after currentErrorReport call\n";
+		std::cerr<<"ClientRequest::sendRequest after currentErrorReport call\n";
 	} else {
 			engine_ptr = &engine;
 			engine.startProcessingThread(processRequest,this);
@@ -148,7 +148,7 @@ void ClientRequest::currentErrorReport() {
 	std::string dateSt = getTimeSt(&curTime);
 	std::string key = getKey();
 //	std::cerr<<"currentErrorReport pt2"<<key<<"\n";
-	ClientCommon::logPtr("currentErrorReport this:",(unsigned)this);
+	DebuggingTools::logPtr("currentErrorReport this:",(unsigned)this);
 	ClientCommon::getClientCommon().addError(key,*this,curTime,dateSt);
 //	ClientCommon::getClientCommon().addError(getKey(),*this,curTime,dateSt);
 //	std::cerr<<"currentErrorReport exit\n";
@@ -307,7 +307,7 @@ void ClientRequest::receiveHeaderData(unsigned& frames, unsigned long& size) {
 
 std::string ClientRequest::getKey() {
 	std::cerr<<"ClientRequest::getKey enter sourceName="<<sourceName<<" \ndestname="<<destName<<"\n";
-	ClientCommon::logPtr("ClientRequest::getKey",(unsigned)this);
+	DebuggingTools::logPtr("ClientRequest::getKey",(unsigned)this);
 	std::string result = sourceName;
 //	return sourceName.append("->").append(destName);
 	return result.append("->").append(destName);

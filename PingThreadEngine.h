@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include <wtypes.h>
 #include <winbase.h>
+#include "DebuggingTools.h"
 #include "EngineCreatingTools.h"
 #include "AbortedStatusWriter.h"
 #include "CompletedStatusWriter.h"
@@ -38,7 +39,7 @@ public:
 private:
 	void initPingProcessing();
 	void deinitPingProcessing();
-	std::string generateName(std::string& first,	std::string second);
+	std::string generateName(std::string first,	std::string second);
 	std::map<int, StatusWriter*> writers;
 /*
 	int createEvent(long manual, long initial, std::string& name, HANDLE* ev_ptr);

@@ -7,6 +7,7 @@
 
 #ifndef ENGINECREATINGTOOLS_H_
 #define ENGINECREATINGTOOLS_H_
+#include <iostream>
 #include <stdint.h>
 #include <string>
 #include <wtypes.h>
