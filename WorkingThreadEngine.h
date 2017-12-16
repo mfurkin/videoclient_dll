@@ -12,6 +12,7 @@
 #include <wtypes.h>
 #include <winbase.h>
 #include "windef.h"
+#include "DebuggingTools.h"
 #include "EngineCreatingTools.h"
 
 class WorkingThreadEngine {

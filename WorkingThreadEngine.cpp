@@ -16,7 +16,8 @@ WorkingThreadEngine::WorkingThreadEngine(std::string& aDestFileAccessName, std::
 				 */
 	int result = 	EngineCreatingTools::createMutex(FALSE,aDestFileAccessName,&destFileAccess) &&
 					EngineCreatingTools::createEvent(FALSE,FALSE,aHeaderDataWrittenName,&headerDataWritten);
-				 	EngineCreatingTools::createSharedMemory(aDataSharedMemoryName.c_str(),size,PAGE_READWRITE,PAGE_READONLY,&dataSharedMemory,&data_ptr);
+				 	EngineCreatingTools::createSharedMemory(aDataSharedMemoryName,size,PAGE_READWRITE,PAGE_READONLY,&dataSharedMemory,&data_ptr);
+				 	DebuggingTools::logPtr("WorkingThreadEngine ctor headerDataWritten",(unsigned)headerDataWritten);
 	inited = result;
 	bytesToWrite = 0;
 	frames = 0;
@@ -24,26 +25,42 @@ WorkingThreadEngine::WorkingThreadEngine(std::string& aDestFileAccessName, std::
 }
 
 WorkingThreadEngine::~WorkingThreadEngine() {
+	std::cerr<<"WorkingThreadEngine dtor enter \n";
 	CloseHandle(destFileAccess);
 	CloseHandle(dataSharedMemory);
 }
 
 void WorkingThreadEngine::receiveHeaderData() {
-	unsigned res2,i;
-	i = 0;
-	switch(i)
-	for(;res2 == WAIT_OBJECT_0;) {
-		case 0:
-		res2 = WaitForSingleObjectEx(headerDataWritten,INFINITE,TRUE);
-	}
-	unsigned result = WaitForSingleObjectEx(destFileAccess,INFINITE,TRUE);
-	if (result == WAIT_OBJECT_0) {
+	unsigned res2;
+	HANDLE event;
+	std::cerr<<"WorkingThreadEngine::receiveHeaderData enter inited="<<inited<<"\n";
+	if (inited) {
+		unsigned i;
+		i = 0;
+		event = headerDataWritten;
+		switch(i)
+		for(;res2 != WAIT_OBJECT_0;) {
+			case 0:
+				DebuggingTools::logPtr("WorkingThreadEngine::receiveHeaderData pt1",(unsigned)headerDataWritten);
+				res2 = WaitForSingleObjectEx(event,INFINITE,TRUE);
+//				res2 = WaitForSingleObjectEx(headerDataWritten,INFINITE,TRUE);
+				std::cerr<<"WorkingThreadEngine::receiveHeaderData pt1-1\n";
+		}
+		std::cerr<<"WorkingThreadEngine::receiveHeaderData pt2\n";
+		unsigned result = WaitForSingleObjectEx(destFileAccess,INFINITE,TRUE);
+		std::cerr<<"WorkingThreadEngine::receiveHeaderData pt3\n";
+		if (result == WAIT_OBJECT_0) {
+		std::cerr<<"WorkingThreadEngine::receiveHeaderData pt4\n";
 		HeaderDataStruct* header_ptr = (HeaderDataStruct*)  data_ptr;
 		frames = (*header_ptr).frames_qty;
 		bytesToWrite = (*header_ptr).frame_size;
 		ReleaseMutex(destFileAccess);
+		std::cerr<<"WorkingThreadEngine::receiveHeaderData pt5\n";
 	}
+	std::cerr<<"WorkingThreadEngine::receiveHeaderData pt6\n";
 	CloseHandle(headerDataWritten);
+	}
+	std::cerr<<"WorkingThreadEngine::receiveHeaderData exit\n";
 }
 
 int WorkingThreadEngine::waitData() {

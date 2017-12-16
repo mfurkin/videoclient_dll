@@ -39,6 +39,7 @@ PingThreadEngine::PingThreadEngine(unsigned short aWidth, unsigned short aHeight
 }
 
 PingThreadEngine::~PingThreadEngine() {
+	std::cerr<<"PingThreadEngine dtor enter\n";
 	deinitPingProcessing();
 	EngineCreatingTools::closeHandle(pingReq);
 	EngineCreatingTools::closeHandle(pingNotify);
@@ -70,8 +71,8 @@ int PingThreadEngine::initServer(std::string& sourceName) {
 		 } else {
 			 	 HANDLE events[2];
 //		 	 unsigned long res1,res2;
-			 	 int res4;
-			 	 unsigned res2;
+//			 	 int res4;
+//			 	 unsigned res2;
 //			 	MEMORY_BASIC_INFORMATION meminfo;
 			 	 std::map<int,StatusWriter*> statusWriters;
 			 	 RequestDataStruct* req_ptr;
@@ -100,7 +101,9 @@ int PingThreadEngine::initServer(std::string& sourceName) {
 			 	 strcpy((*req_ptr).destFileAccessName,destFileAccessName.c_str());
 					std::cerr<<"PingThreadEngine::initServer pt10\n";
 //					res1 = WaitForSingleObjectEx(reqEnabledFlag,INFINITE,TRUE);
-			 	 res2 = WaitForMultipleObjectsEx(2,events,TRUE,INFINITE,TRUE);		// Поскольку нашли сервер, ждём бесконечно
+				strcpy((*req_ptr).headerDataWrittenName,headerDataWrittenName.c_str());
+//			 	 res2 =
+			 			 WaitForMultipleObjectsEx(2,events,TRUE,INFINITE,TRUE);		// Поскольку нашли сервер, ждём бесконечно
 /*
 					std::cerr<<"PingThreadEngine::initServer pt11\n";
 					res2 = WaitForSingleObjectEx(reqMutex,INFINITE,TRUE);
@@ -144,26 +147,38 @@ void PingThreadEngine::deinitStatusWriter(std::pair<int, StatusWriter*> aPair) {
 	delete aPair.second;
 }
 
-int PingThreadEngine::getResponseMessage() {
+int PingThreadEngine::getResponseMessage(unsigned short* answered_ptr) {
 	unsigned long res;
 	int result;
+	std::cerr<<"PingThreadEngine::getResponse message enter inited="<<inited<<"\n";
 	if (!(inited))
 		result = 0;
 	else {
 		result = TRUE;
+		*answered_ptr = TRUE;
 		res = WaitForSingleObjectEx(pingNotify,1000,TRUE);
 		if (res == WAIT_FAILED) {
 			result = 0;
+			*answered_ptr = 0;
 			std::cerr<<"getResponseMessage: res=WAIT_FAILED error code="<<GetLastError()<<"\n";
 		} else
+			if (res == WAIT_TIMEOUT) {
+				*answered_ptr = 0;
+				std::cerr<<"PingThreadEngine::getResponseMessage WAIT_TIMEOUT  have been got\n";
+				if (!(DebuggingTools::checkTimeouts(timeout_count)))
+					result = FALSE;
+			}
 //			if ((result == WAIT_TIMEOUT) && (!(--timeout_count)))
-			if ((result == WAIT_TIMEOUT) && (!(DebuggingTools::checkTimeouts(timeout_count))))
-				result = 0;
+/*			if ((res == WAIT_TIMEOUT) && (!(DebuggingTools::checkTimeouts(timeout_count))))
+				result = FALSE;
+				*/
 	}
+	std::cerr<<"PingThreadEngine::getResponseMessage exit result="<<result<<" res="<<res<<"\n";
 	return result;
 }
 
 void PingThreadEngine::processMessage(volatile int* finished_ptr) {
+	std::cerr<<"PingThreadEngine::processMessage  enter inited="<<inited<<"\n";
 	if (!(inited))
 		*finished_ptr = 0;
 	else {
@@ -172,6 +187,7 @@ void PingThreadEngine::processMessage(volatile int* finished_ptr) {
 		if ((*rsp_ptr).req_status == REQ_COMPLETED)
 			*finished_ptr = 0;
 	}
+	std::cerr<<"PingThreadEngine::processMessage exit\n";
 }
 
 void PingThreadEngine::outputMessage() {

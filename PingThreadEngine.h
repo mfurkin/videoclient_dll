@@ -30,7 +30,7 @@ public:
 	virtual ~PingThreadEngine();
 	int initServer(std::string&sourceName);
 	void startProcessingThread(ProcType proc, void* p);
-	int getResponseMessage();
+	int getResponseMessage(unsigned short* answered_ptr);
 	static void deinitStatusWriter(std::pair<int,StatusWriter*> aPair);
 	void processMessage(volatile int* finished_ptr);
 	void outputMessage();

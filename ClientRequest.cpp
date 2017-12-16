@@ -99,11 +99,18 @@ void ClientRequest::sendRequest() {
 		currentErrorReport();
 		std::cerr<<"ClientRequest::sendRequest after currentErrorReport call\n";
 	} else {
+			unsigned short answered;
 			engine_ptr = &engine;
+			in_progress = 1;
 			engine.startProcessingThread(processRequest,this);
-			for (;in_progress && (result = engine.getResponseMessage());engine.waitNext()) {
-				engine.processMessage(&in_progress);
-				engine.outputMessage();
+			std::cerr<<"ClientRequest::sendRequest before loop\n";
+			answered = 0;
+			for (;in_progress && (result = engine.getResponseMessage(&answered));engine.waitNext()) {
+				if (answered) {
+					engine.processMessage(&in_progress);
+					engine.outputMessage();
+					answered = 0;
+				}
 			}
 
 //			 _beginthreadex(NULL,0,processRequest,this,0,NULL);
@@ -200,16 +207,17 @@ unsigned __attribute__((__stdcall__)) ClientRequest::processRequest(void* p) {
 }
 
 unsigned ClientRequest::processThisRequest() {
+	std::cerr<<"ClientRequest::processThisRequest enter\n";
 	HANDLE fileDest = CreateFile(destName.c_str(),GENERIC_WRITE,0,NULL,CREATE_ALWAYS,FILE_FLAG_OVERLAPPED,NULL);
+	DebuggingTools::logPtr("ClientRequest::processThisRequest pt1",(unsigned)fileDest);
 	WorkingThreadEngine engine = (*engine_ptr).getWorkingThreadEngine(&in_progress);
 	if (fileDest == INVALID_HANDLE_VALUE)
 		in_progress = 0;
 	else  {
 		unsigned long result;
 		unsigned frames = 1;
-		for (engine.receiveHeaderData();in_progress && (frames--) &&
-															(result = engine.waitData());
-				result = WaitForSingleObjectEx(fileDest,INFINITE,TRUE))
+		for (engine.receiveHeaderData();in_progress && (frames--) && (result = engine.waitData());
+				result = WaitForSingleObjectEx(fileDest,INFINITE,TRUE)) {
 			if (result) {
 				engine.writeToFile(fileDest);
 				engine.releaseAccess();
@@ -221,8 +229,12 @@ unsigned ClientRequest::processThisRequest() {
 				WriteFileEx(fileDest,data_ptr,bytesToWrite,&ovl,ClientRequest::writeCompletedProc);
 				*/
 			}
+			std::cerr<<"ClientRequest::processThisRequest pt4\n";
+		}
+		std::cerr<<"ClientRequest::processThisRequest pt5\n";
 		CloseHandle(fileDest);
 	}
+	std::cerr<<"ClientRequest::processThisRequest exit\n";
 	return 0;
 }
 
