@@ -42,11 +42,11 @@ void ErrorReport::pastErrorReport(ClientCommon& clientCommon) {
 
 std::string ErrorReport::toString() {
 	char line[MAX_PATH];
-//	std::cerr<<"ErrorReport::toString enter\n";
+	std::cerr<<"ErrorReport::toString enter\n";
 	std::string cl_req=ClientRequest::toString();
-//	std::cerr<<"ErrorReport::toString pt1\n";
+	std::cerr<<"ErrorReport::toString pt1\n";
 	sprintf(line,"%s %d %s",dateSt.c_str(),(unsigned)time,cl_req.c_str());
-//	std::cerr<<"ErrorReport::toString exit\n";
+	std::cerr<<"ErrorReport::toString exit\n";
 	return std::string(line);
 }
 /*

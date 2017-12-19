@@ -355,7 +355,7 @@ void ClientCommon::saveState() {
 		writeLogFile<<(*ptr).toString()<<"\n";
 //		std::cerr<<"savestate pt9\n";
 	}
-//	std::cerr<<"savestate pt10\n";
+	std::cerr<<"savestate pt10\n";
 	ReleaseMutex(errorsMutex);
 //	std::cerr<<"savestate pt11\n";
 	fb.close();

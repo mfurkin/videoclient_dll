@@ -17,7 +17,7 @@
 #include "EngineCreatingTools.h"
 #include "AbortedStatusWriter.h"
 #include "CompletedStatusWriter.h"
-#include "PingThreadEngine.h"
+// #include "PingThreadEngine.h"
 #include "InProgressStatusWriter.h"
 #include "ReceivedStatusWriter.h"
 #include "server_names.h"
@@ -34,7 +34,7 @@ public:
 	static void deinitStatusWriter(std::pair<int,StatusWriter*> aPair);
 	void processMessage(volatile int* finished_ptr);
 	void outputMessage();
-	WorkingThreadEngine getWorkingThreadEngine(volatile int* aFinishedPtr);
+	WorkingThreadEngine getWorkingThreadEngine(volatile int* aFinishedPtr, std::string& destName);
 	void waitNext();
 private:
 	void initPingProcessing();

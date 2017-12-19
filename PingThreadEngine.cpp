@@ -41,6 +41,7 @@ PingThreadEngine::PingThreadEngine(unsigned short aWidth, unsigned short aHeight
 PingThreadEngine::~PingThreadEngine() {
 	std::cerr<<"PingThreadEngine dtor enter\n";
 	deinitPingProcessing();
+	UnmapViewOfFile(ping_ptr);
 	EngineCreatingTools::closeHandle(pingReq);
 	EngineCreatingTools::closeHandle(pingNotify);
 	EngineCreatingTools::closeHandle(pingSharedMemory);
@@ -116,6 +117,7 @@ int PingThreadEngine::initServer(std::string& sourceName) {
 			 	 ReleaseMutex(reqMutex);
 					std::cerr<<"PingThreadEngine::initServer pt14\n";
 					result = TRUE;
+					UnmapViewOfFile(srv_ptr);
 		 }
 		 /*
 		 CloseHandle(reqFlag);
@@ -191,21 +193,24 @@ void PingThreadEngine::processMessage(volatile int* finished_ptr) {
 }
 
 void PingThreadEngine::outputMessage() {
+//	std::cerr<<"PingThreadEngine::outputMessage enter inited="<<inited<<"\n";
 	if (inited) {
 		ResponseDataStruct* rsp_ptr = (ResponseDataStruct*) ping_ptr;
+//		std::cerr<<"PingThreadEngine::outputMessage pt1 status="<<(*rsp_ptr).req_status<<"\n";
 		StatusWriter* writer_ptr = writers[(*rsp_ptr).req_status];
 		(*writer_ptr).outputStatus((*rsp_ptr).progress);
 	}
+//	std::cerr<<"PingThreadEngine::outputMessage exit\n";
 }
 
-WorkingThreadEngine PingThreadEngine::getWorkingThreadEngine(volatile int* aFinishedPtr) {
+WorkingThreadEngine PingThreadEngine::getWorkingThreadEngine(volatile int* aFinishedPtr, std::string& destName) {
 //	return WorkingThreadEngine(writeCompletedName,writeEnabledName,dataSharedMemoryName,width*height*COLORS_NUM);
-	return WorkingThreadEngine(destFileAccessName,dataSharedMemoryName,headerDataWrittenName, width*height*COLORS_NUM,aFinishedPtr);
+	return WorkingThreadEngine(destFileAccessName,dataSharedMemoryName,headerDataWrittenName, width*height*COLORS_NUM,destName,aFinishedPtr);
 }
 
 void PingThreadEngine::waitNext() {
-	SleepEx(PING_PERIOD,TRUE);
 	SetEvent(pingReq);
+	SleepEx(PING_PERIOD,TRUE);
 }
 /*
 void PingThreadEngine::init() {
