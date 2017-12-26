@@ -76,7 +76,6 @@ private:
 	static std::string CLIENT_LOG_NAME,CLIENT_COMMON_TAG;
 	ClientCommon();
 	void initLogger();
-//	void deleteHandle(std::string destName);
 	void initConvTypeMap();
 	int makeSureFileExists(const char* fname, int isFile);
 	std::string getLogFname();

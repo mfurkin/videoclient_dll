@@ -15,16 +15,11 @@ ClientCommon::ClientCommon():createLoggerProc(NULL),logProc(NULL),logPtrProc(NUL
 }
 
 ClientCommon::~ClientCommon() {
-//	std::cerr<<"ClientCommon dtor enter\n";
 	saveState();
-//	std::cerr<<"ClientCommon dtor pt1\n";
 	for_each(errors.begin(),errors.end(),ClientCommon::deleteError);
-//	std::cerr<<"ClientCommon dtor pt2\n";
 	for_each(inProgress.begin(),inProgress.end(),ClientCommon::deleteInProgress);
-//	std::cerr<<"ClientCommon dtor pt3\n";
 	CloseHandle(errorsMutex);
 	CloseHandle(inProgressMutex);
-//	std::cerr<<"ClientCommon dtor exit\n";
 }
 
 std::string ClientCommon::getLogFname() {
@@ -104,66 +99,61 @@ unsigned short ClientCommon::getKeySize() {
 }
 
 void ClientCommon::init() {
-//	std::cerr<<"ClientCommon::init enter\n";
+
 	std::string logFname = getLogFname();
 	std::filebuf fb;
 	const char* buf;
 	initConvTypeMap();
 	initLogger();
-//	std::cerr<<"ClientCommon::init pt1 logFname="<<logFname<<"\n";
+
 	logString(CLIENT_COMMON_TAG,"ClientCommon::init pt1 logFname=",logFname);
 	if (makeSureFileExists(logFname.c_str(),TRUE)) {
-//		std::cerr<<"ClientCommon::init pt2\n";
+
 		log(CLIENT_COMMON_TAG,"ClientCommon::init pt2");
 		fb.open(logFname.c_str(),std::ios::in);
 		std::istream readLogFile(&fb);
-//		std::cerr<<"ClientCommon::init pt3\n";
+
 		log(CLIENT_COMMON_TAG,"ClientCommon::init pt3");
 		for(;(!(readLogFile.eof()));) {
 			std::string st;
-//			std::cerr<<"ClientCommon::init pt4\n";
+
 			log(CLIENT_COMMON_TAG,"ClientCommon::init pt4");
 			std::getline(readLogFile,st);
-//			std::cerr<<"ClientCommon::init pt4.1 st="<<st<<"\n";
+
 			logString(CLIENT_COMMON_TAG,"ClientCommon::init pt4.1 st=",st);
 			if (st.empty())
 				break;
-//			std::cerr<<"ClientCommon::init pt5\n";
+
 			log(CLIENT_COMMON_TAG,"ClientCommon::init pt5");
 			buf = st.c_str();
-//			std::cerr<<"ClientCommon::init pt5.1 st="<<st<<"\n";
+
 			logString(CLIENT_COMMON_TAG,"ClientCommon::init pt5.1 st=",st);
 			addThisErrorFromChar(buf);
-//			std::cerr<<"ClientCommon::init pt6\n";
+
 			log(CLIENT_COMMON_TAG,"ClientCommon::init pt6");
 		}
-//		std::cerr<<"ClientCommon::init pt7\n";
+
 		log(CLIENT_COMMON_TAG,"ClientCommon::init pt7");
 		fb.close();
 	}
 	log(CLIENT_COMMON_TAG,"ClientCommon::init exit");
-//	std::cerr<<"ClientCommon::init exit\n";
+
 }
 
 int ClientCommon::isInProgress(std::string key) {
 	int result;
 	WaitForSingleObjectEx(inProgressMutex,INFINITE,TRUE);
-//	result = (readers.find(key) != readers.end());
 	result = (inProgress.find(key) != inProgress.end());
 	ReleaseMutex(inProgressMutex);
 	return result;
 }
 
 void ClientCommon::deleteError(	std::pair<std::string, ErrorReport*> aPair) {
-//	logPtr((char*)"deleteError",(unsigned)aPair.second);
 	delete  aPair.second;
 }
 
 void ClientCommon::deleteInProgress(std::pair<std::string, ClientRequest*> aPair) {
-//	std::cerr<<"deleteInProgress enter\n";
-//	logPtr("deleteInProgress",(unsigned)aPair.second);
 	delete aPair.second;
-//	std::cerr<<"deleteInProgress exit\n";
 }
 
 ErrorReport ClientCommon::getInfo(const char* buf) {
@@ -175,31 +165,31 @@ ErrorReport ClientCommon::getInfo(const char* buf) {
 	time_t date;
 	unsigned short width,height,type;
 	strcpy(date_st,strtok((char*)buf,delims));
-//	std::cerr<<"ClientCommon::getInfo date_st="<<date_st<<"\n";
+
 	date = getInteger(delims);
-//	std::cerr<<"ClientCommon::getInfo time_st="<<time_st<<"\n";
+
 	time_st = getString(delims);
 	strcat(date_st,time_st.c_str());
 	std::string date_st2(date_st);
 	strcpy(source_name, getString(delims));
-//	std::cerr<<"ClientCommon::getInfo source_name="<<source_name<<"\n";
+
 	width = getInteger(delims);
-//	std::cerr<<"ClientCommon::getInfo width="<<width<<"\n";
+
 	height = getInteger(delims);
-//	std::cerr<<"ClientCommon::getInfo height="<<height<<"\n";
+
 	type_st = getString(delims);
-//	std::cerr<<"ClientCommon::getInfo type_st="<<type_st<<"\n";
+
 	type = convTypes[type_st];
-//	std::cerr<<"ClientCommon::getInfo type="<<type<<"\n";
+
 	strcpy(dest_name, getString(delims));
-//	std::cerr<<"ClientCommon::getInfo before ClientRequest ctor call"<<source_name<<"\n";
+
 	ClientRequest req(source_name,dest_name,width,height,type);
 	return ErrorReport(req,date,date_st2);
 }
 
 int ClientCommon::registerRequest(std::string key, ClientRequest* req_ptr) {
 	int result;;
-//	(*req_ptr).sendRequest();
+
 	WaitForSingleObjectEx(inProgressMutex,INFINITE,TRUE);
 	result = !(isInProgress(key));
 	if (result)
@@ -210,15 +200,13 @@ int ClientCommon::registerRequest(std::string key, ClientRequest* req_ptr) {
 
 void ClientCommon::unregisterRequest(std::string key) {
 	WaitForSingleObjectEx(inProgressMutex,INFINITE,TRUE);
-//	std::cerr<<"ClientCommon::unregisterRequest  key="<<key<<"\n";
+
 	ClientRequest* ptr = inProgress[key];
 	delete ptr;
-//	std::cerr<<"ClientCommon::unregisterRequest  pt2\n";
-//	std::cerr<<"ClientCommon::unregisterRequest  pt3\n";
 	inProgress.erase(key);
-//	std::cerr<<"ClientCommon::unregisterRequest  pt4\n";
+
 	ReleaseMutex(inProgressMutex);
-//	std::cerr<<"ClientCommon::unregisterRequest  exit\n";
+
 }
 
 void ClientCommon::sendNewRequest(ClientRequest& req) {
@@ -237,16 +225,16 @@ void ClientCommon::repeatRequest() {
 	ErrorReport* report = errors[st];
 	(*report).sendRequest();
 	errors_deque.pop_front();
-//	errors_queue.pop();
+
 	ReleaseMutex(errorsMutex);
 }
 
 void ClientCommon::addThisErrorFromChar(const char* buf) {
-//	std::cerr<<"ClientCommon::addThisErrorFromChar enter\n";
+
 	ErrorReport* req = new ErrorReport(getInfo(buf));
-//	std::cerr<<"ClientCommon::addThisErrorFromChar pt1\n";
+
 	(*req).addThisError(*this);
-//	std::cerr<<"ClientCommon::addThisErrorFromChar exit\n";
+
 }
 
 
@@ -256,17 +244,17 @@ void ClientCommon::addError(std::string key, ClientRequest& req, time_t curTime,
 }
 void ClientCommon::addThisError(std::string key,  ErrorReport*  report) {
 	WaitForSingleObjectEx(errorsMutex,INFINITE,TRUE);
-//		std::cerr<<"ClientCommon::addThisError enter\n";
+
 		errors[key] = report;
-//		std::cerr<<"ClientCommon::addThisError pt1\n";
+
 		errors_deque.push_back(key);
-//		std::cerr<<"ClientCommon::addThisError exit\n";
+
 	ReleaseMutex(errorsMutex);
 }
 
 int ClientCommon::isErrorQueueEmpty() {
 	WaitForSingleObjectEx(errorsMutex,INFINITE,TRUE);
-		int result = errors_deque.empty();
+	int result = errors_deque.empty();
 	ReleaseMutex(errorsMutex);
 	return result;
 
@@ -303,7 +291,6 @@ ClientRequest* buildClientRequest(char* params[], ClientCommon& commonClient) {
 				char* fileName;
 				GetFullPathName(params[DEST_FILE_NUMBER],MAX_PATH,destFileCh,&fileName);
 				std::string destFile = std::string(destFileCh);
-//				std::cerr<<"ClientCommon::buildClientRequest before ClientRequest ctor sourceName="<<sourceName<<"\n";
 				ptr = new ClientRequest(sourceName,destFile,width,height,type);
 			}
 		}
@@ -315,8 +302,6 @@ void __attribute__((dllexport)) sendRequest(char* params[]) {
 	ClientCommon commonClient = ClientCommon::getClientCommon();
 	ClientRequest* req_ptr = buildClientRequest(params,commonClient);
 	commonClient.sendNewRequest(*req_ptr);
-
-//	delete req_ptr;
 }
 
 void __attribute__((dllexport)) repeatError() {
@@ -326,19 +311,13 @@ void __attribute__((dllexport)) repeatError() {
 int __attribute__((dllexport)) errorsExist() {
 	return (!(ClientCommon::getClientCommon().isErrorQueueEmpty()));
 }
-/*
-void ClientCommon::saveThisError(std::string key) {
-	ErrorReport* ptr = errors[key];
-	std::string  error_st = (*ptr).toString();
 
-}
-*/
 void ClientCommon::saveState() {
 	std::filebuf fb;
-//	std::cerr<<"savestate enter\n";
+
 	fb.open(getLogFname().c_str(),std::ios::out);
 	std::ostream writeLogFile(&fb);
-//	std::cerr<<"savestate pt1\n";
+
 	WaitForSingleObjectEx(inProgressMutex,INFINITE,TRUE);
 		std::map<std::string,ClientRequest*>::iterator it_progress,end_progress = inProgress.end();
 		std::string key;
@@ -346,36 +325,29 @@ void ClientCommon::saveState() {
 		for(it_progress  = inProgress.begin();it_progress != end_progress;) {
 			key = (*it_progress).first;
 			ClientRequest* ptr = (*it_progress++).second;
-//			std::cerr<<"savestate pt2\n";
+
 			(*ptr).currentErrorReport();
-//			std::cerr<<"savestate pt3\n";
+
 		}
-//	std::cerr<<"savestate pt4\n";
+
 	ReleaseMutex(inProgressMutex);
-//	std::cerr<<"savestate pt5\n";
+
 	WaitForSingleObjectEx(errorsMutex,INFINITE,TRUE);
-//	std::cerr<<"savestate pt6\n";
+
 	std::deque<std::string>::iterator it_errors,end_errors;
 	end_errors = errors_deque.end();
 	std::string curKey;
 	for (it_errors=errors_deque.begin();it_errors!=end_errors;) {
 		curKey = *it_errors++;
-//		std::cerr<<"savestate pt7 curKey="<<curKey<<"\n";
+
 		ErrorReport* ptr = errors[curKey];
-//		ErrorReport* ptr = errors[*it_errors++];
-//		std::cerr<<"savestate pt8\n";
-//		DebuggingTools::logPtr("ClientCommon::saveState ptr=",(unsigned)ptr);
 		logPtr(CLIENT_COMMON_TAG,"ClientCommon::saveState ptr=",(unsigned)ptr);
-//		std::cerr<<"savestate pt8.1\n";
 		writeLogFile<<(*ptr).toString()<<"\n";
-//		std::cerr<<"savestate pt9\n";
 	}
 	log(CLIENT_COMMON_TAG,"savestate pt10");
-//	std::cerr<<"savestate pt10\n";
+
 	ReleaseMutex(errorsMutex);
-//	std::cerr<<"savestate pt11\n";
 	fb.close();
-//	std::cerr<<"savestate exit\n";
 }
 
 void __attribute__((dllexport)) saveState() {
@@ -383,7 +355,6 @@ void __attribute__((dllexport)) saveState() {
 }
 
 std::string ClientCommon::getConvTypeSt(int type) {
-//	std::cerr<<"ClientCommon::getConvTypeSt type="<<type<<"\n";
 	std::string typesSt[5] = {YUV420toRGB24_st,  YUV422toRGB24_st, RGB24toYUV420_st,  RGB24toYUV422_st, YUV420toYUV422_st};
 	return typesSt[type-1];
 }
