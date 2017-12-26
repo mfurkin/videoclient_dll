@@ -13,20 +13,25 @@
 #include <stdio.h>
 #include <wtypes.h>
 #include <winbase.h>
-#include "DebuggingTools.h"
-#include "EngineCreatingTools.h"
+
+// #include "EngineCreatingTools.h"
 #include "AbortedStatusWriter.h"
 #include "CompletedStatusWriter.h"
-// #include "PingThreadEngine.h"
+#include "LoggerEngine.h"
 #include "InProgressStatusWriter.h"
 #include "ReceivedStatusWriter.h"
 #include "server_names.h"
 #include "WorkingThreadEngine.h"
+
 enum {WAITING_PING_COUNT=10, PING_PERIOD=10000};
 typedef unsigned WINAPI (*ProcType)(void* ptr);
+
+class WorkingThreadEngine;
+
+
 class PingThreadEngine {
 public:
-	PingThreadEngine(unsigned short width, unsigned short height, unsigned short type);
+	PingThreadEngine(unsigned short width, unsigned short height, unsigned short type, LoggerEngine* aLoggerPtr);
 	virtual ~PingThreadEngine();
 	int initServer(std::string&sourceName);
 	void startProcessingThread(ProcType proc, void* p);
@@ -37,30 +42,23 @@ public:
 	WorkingThreadEngine getWorkingThreadEngine(volatile int* aFinishedPtr, std::string& destName);
 	void waitNext();
 private:
+	void log(std::string& tag, std::string msg);
+	void logPtr(std::string& tag, std::string msg, unsigned ptr);
+	void logString(std::string& tag, std::string msg, std::string& msg2);
 	void initPingProcessing();
 	void deinitPingProcessing();
 	std::string generateName(std::string first,	std::string second);
+	int checkTimeouts(unsigned short& count);
 	std::map<int, StatusWriter*> writers;
-/*
-	int createEvent(long manual, long initial, std::string& name, HANDLE* ev_ptr);
-	int createSharedMemory(std::string name, unsigned sizeLow, unsigned rights, unsigned mapRights, HANDLE* filemap_ptr, uint8_t** pptr);
-
-	void init();
-	*/
 	unsigned short width,height,type;
-		std::string pingReqName,pingNotifyName,pingSharedMemoryName,writeCompletedName, destFileAccessName, dataSharedMemoryName,
-					headerDataWrittenName;
-//		writeEnabledName, dataSharedMemoryName;
+	std::string pingReqName,pingNotifyName,pingSharedMemoryName,writeCompletedName, destFileAccessName, dataSharedMemoryName,
+					writeEnabledName;
+	static std::string PING_THREAD_ENGINE_CTOR_TAG,PING_THREAD_ENGINE_DTOR_TAG,PING_THREAD_TAG;
 	HANDLE pingReq, pingNotify,pingSharedMemory;
-//		,writeCompleted,writeEnabled,dataSharedMemory;
-//		uint8_t* data_ptr,*ping_ptr;
-		uint8_t* ping_ptr;
-		/*
-		unsigned long bytesToWrite;
-		LARGE_INTEGER offset;
-		*/
+	uint8_t* ping_ptr;
 	static volatile long count;
 	volatile int inited;
+	LoggerEngine* logger_ptr;
 	unsigned short timeout_count;
 };
 

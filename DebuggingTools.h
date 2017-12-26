@@ -12,13 +12,15 @@
 #include <wtypes.h>
 #include <winbase.h>
 #include <windef.h>
+#include "ClientCommon.h"
+
 class DebuggingTools {
 public:
 	DebuggingTools();
 	virtual ~DebuggingTools();
-	static void logPtr(const char* msg, unsigned ptr);
-	static int checkFileMapping(std::string name, std::string msg);
-	static int checkTimeouts(unsigned short& count);
+//	static void logPtr(const char* msg, unsigned ptr);
+//	static int checkFileMapping(std::string name, std::string msg);
+//	static int checkTimeouts(unsigned short& count);
 };
 
 #endif /* DEBUGGINGTOOLS_H_ */

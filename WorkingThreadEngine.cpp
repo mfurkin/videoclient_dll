@@ -6,17 +6,14 @@
  */
 
 #include "WorkingThreadEngine.h"
-
-WorkingThreadEngine::WorkingThreadEngine(std::string& aDestFileAccessName, std::string& aDataSharedMemoryName,
-										 std::string& aHeaderDataWrittenName, unsigned aSize, std::string& aDestName,
-										 volatile int* aFinishedPtr): size(aSize), finished_ptr(aFinishedPtr) {
-	int result = 	EngineCreatingTools::createMutex(FALSE,aDestFileAccessName,&destFileAccess) &&
-					EngineCreatingTools::createEvent(FALSE,FALSE,aHeaderDataWrittenName,&headerDataWritten) &&
-				 	EngineCreatingTools::createSharedMemory(aDataSharedMemoryName,size,PAGE_READWRITE,PAGE_READONLY,&dataSharedMemory,&data_ptr);
-	DebuggingTools::logPtr("WorkingThreadEngine ctor headerDataWritten",(unsigned)headerDataWritten);
+std::string WorkingThreadEngine::WORKING_THREAD_TAG = "Working_thread";
+WorkingThreadEngine::WorkingThreadEngine(std::string& aWriteCompletedName, std::string& aWriteEnabledName, std::string& aDataSharedMemoryName,
+										 unsigned aSize, std::string& aDestName, volatile int* aFinishedPtr, LoggerEngine* aLoggerPtr): size(aSize), finished_ptr(aFinishedPtr),
+										 	 	 	 	 	 	 	 	 	 	 	 	 	 	 	 	 	 logger_ptr(aLoggerPtr) {
+	int result = 	EngineCreatingTools::createEvent(FALSE,FALSE,aWriteCompletedName,&writeCompleted) &&
+					EngineCreatingTools::createEvent(FALSE,FALSE,aWriteEnabledName,&writeEnabled) &&
+				 	EngineCreatingTools::createSharedMemory(aDataSharedMemoryName,size,PAGE_READWRITE,PAGE_READONLY,&dataSharedMemory,&data_ptr);// &&
 	fileDest = CreateFile(aDestName.c_str(),GENERIC_WRITE,0,NULL,CREATE_ALWAYS,FILE_FLAG_OVERLAPPED,NULL);
-	DebuggingTools::logPtr("WorkingThreadEngine ctor pt1",(unsigned)fileDest);
-	DebuggingTools::logPtr("WorkingThreadEngine ctor pt2",(unsigned)destFileAccess);
 	inited = result;
 	bytesToWrite = 0;
 	frames = 0;
@@ -24,88 +21,79 @@ WorkingThreadEngine::WorkingThreadEngine(std::string& aDestFileAccessName, std::
 }
 
 WorkingThreadEngine::~WorkingThreadEngine() {
-	std::cerr<<"WorkingThreadEngine dtor enter \n";
+	log("WorkingThreadEngine dtor enter");
 	UnmapViewOfFile(data_ptr);
-	CloseHandle(destFileAccess);
+	CloseHandle(writeCompleted);
+	CloseHandle(writeEnabled);
 	CloseHandle(dataSharedMemory);
 	CloseHandle(fileDest);
 }
 
-void WorkingThreadEngine::receiveHeaderData() {
-	unsigned res2;
-	HANDLE event;
-	std::cerr<<"WorkingThreadEngine::receiveHeaderData enter inited="<<inited<<"\n";
+void WorkingThreadEngine::receiveHeaderData(volatile int& in_progress) {
+	logPtr("WorkingThreadEngine::receiveHeaderData enter inited=",inited);
 	if (inited) {
-		unsigned i;
-		i = 0;
-		event = headerDataWritten;
-		switch(i)
-		for(;res2 != WAIT_OBJECT_0;) {
-			case 0:
-				DebuggingTools::logPtr("WorkingThreadEngine::receiveHeaderData pt1",(unsigned)headerDataWritten);
-				res2 = WaitForSingleObjectEx(event,INFINITE,TRUE);
-//				res2 = WaitForSingleObjectEx(headerDataWritten,INFINITE,TRUE);
-				std::cerr<<"WorkingThreadEngine::receiveHeaderData pt1-1\n";
+		log("WorkingThreadEngine::receiveHeaderData pt1");
+		SetEvent(writeEnabled);
+		unsigned result = WaitForSingleObjectEx(writeCompleted,INFINITE,TRUE);
+		if (result != WAIT_OBJECT_0) {
+			in_progress = 0;
+			logPtr("WorkingThreadEngine::receiveHeaderData result=",result);
+		} else {
+			log("WorkingThreadEngine::receiveHeaderData pt2");
+			HeaderDataStruct* header_ptr = (HeaderDataStruct*)  data_ptr;
+			frames = (*header_ptr).frames_qty;
+			bytesToWrite = (*header_ptr).frame_size;
+			logPtr("WorkingThreadEngine::receiveHeaderData pt5 frames=",frames);
 		}
-		std::cerr<<"WorkingThreadEngine::receiveHeaderData pt2\n";
-		unsigned result = WaitForSingleObjectEx(destFileAccess,INFINITE,TRUE);
-		std::cerr<<"WorkingThreadEngine::receiveHeaderData pt3\n";
-		if (result == WAIT_OBJECT_0) {
-		std::cerr<<"WorkingThreadEngine::receiveHeaderData pt4\n";
-		HeaderDataStruct* header_ptr = (HeaderDataStruct*)  data_ptr;
-		frames = (*header_ptr).frames_qty;
-		bytesToWrite = (*header_ptr).frame_size;
-		ReleaseMutex(destFileAccess);
-		std::cerr<<"WorkingThreadEngine::receiveHeaderData pt5\n";
+		log("WorkingThreadEngine::receiveHeaderData pt6");
 	}
-	std::cerr<<"WorkingThreadEngine::receiveHeaderData pt6\n";
-	CloseHandle(headerDataWritten);
-	}
-	std::cerr<<"WorkingThreadEngine::receiveHeaderData exit\n";
+	log("WorkingThreadEngine::receiveHeaderData exit");
 }
 
 int WorkingThreadEngine::waitData() {
-	int result = WaitForSingleObjectEx(destFileAccess,INFINITE,TRUE);
-//	int result = SignalObjectAndWait(writeEnabled,writeCompleted,INFINITE,TRUE);
+	unsigned result = WaitForSingleObjectEx(writeCompleted,INFINITE,TRUE);
+	logPtr("WorkingThreadEngine::waitData result=",result);
+	if (result == WAIT_FAILED)
+		logPtr("WorkingThreadEngine::waitData wait Failed error code=",GetLastError());
 	return (result == WAIT_OBJECT_0);
 }
 
 void WorkingThreadEngine::releaseAccess() {
-	ReleaseMutex(destFileAccess);
+	SetEvent(writeEnabled);
 }
 
 void WorkingThreadEngine::checkThisWrite(unsigned long errorCode,	unsigned long bytesWritten) {
-	std::cerr<<"WorkingThreadEngine::checkThisWrite enter errorCode="<<errorCode<<" bytesWritten="<<bytesWritten<<" bytesToWrite ="<<bytesToWrite<<"\n";
-	if ((errorCode == 0) &&  (bytesWritten == bytesToWrite)) {
+	logPtr("WorkingThreadEngine::checkThisWrite enter errorCode=",errorCode);
+	logPtr("WorkingThreadEngine::checkThisWrite bytesWritten=",bytesWritten);
+	logPtr("WorkingThreadEngine::checkThisWrite  bytesToWrite =",bytesToWrite);
+	if ((errorCode == 0) &&  (bytesWritten == bytesToWrite))
 		offset.QuadPart +=  bytesWritten;
-	}
 	else {
-		std::cerr<<"Error during file write error code="<<errorCode<<"\n";
+		logPtr("Error during file write error code=",errorCode);
 		*finished_ptr = 0;
 	}
-	std::cerr<<"WorkingThreadEngine::checkThisWrite exit\n";
+	log("WorkingThreadEngine::checkThisWrite exit");
 }
 
 void WorkingThreadEngine::writeConvertedFile(volatile int& in_progress) {
 	int result,res = fileCreated();
-	std::cerr<<"WorkingThreadEngine:writeConvertedFile enter res="<<res<<" inited="<<inited<<"\n";
-//	if (fileCreated())
+	logPtr("WorkingThreadEngine:writeConvertedFile enter res=",res);
 	if ((!(inited)) || (!(res)))
 		in_progress = 0;
 	else {
-		std::cerr<<"WorkingThreadEngine:writeConvertedFile pt1 in_progress="<<in_progress<<"\n";
-		for (receiveHeaderData();in_progress && (nextFrame()) && (result = waitData());) {
-			std::cerr<<"WorkingThreadEngine:writeConvertedFile pt2 result="<<result<<"\n";
+		logPtr("WorkingThreadEngine:writeConvertedFile pt1 in_progress=",in_progress);
+		for (receiveHeaderData(in_progress);in_progress && (nextFrame()) && (result = waitData());) {
+			logPtr("WorkingThreadEngine:writeConvertedFile pt2 result=",result);
 			if (result) {
 				writeToFile();
 				waitWriteComplete();
 				releaseAccess();
 			}
-			std::cerr<<"WorkingThreadEngine:writeConvertedFile pt3\n";
+			log("WorkingThreadEngine:writeConvertedFile pt3");
 		}
-		std::cerr<<"WorkingThreadEngine:writeConvertedFile pt4\n";
+		log("WorkingThreadEngine:writeConvertedFile pt4");
 	}
-	std::cerr<<"WorkingThreadEngine:writeConvertedFile exits\n";
+	log("WorkingThreadEngine:writeConvertedFile exits");
 }
 
 void WorkingThreadEngine::writeToFile() {
@@ -132,6 +120,21 @@ int WorkingThreadEngine::waitWriteComplete() {
 
 int WorkingThreadEngine::nextFrame() {
 	int result = frames--;
-	std::cerr<<"WorkingThreadEngine::nextFrame result="<<result<<"\n";
+	logPtr("WorkingThreadEngine::nextFrame result=",result);
 	return result;
+}
+
+void WorkingThreadEngine::log(std::string msg) {
+	if (logger_ptr)
+		(*logger_ptr).log(WORKING_THREAD_TAG,msg);
+}
+
+void WorkingThreadEngine::logPtr(std::string msg,	unsigned ptr) {
+	if  (logger_ptr)
+		(*logger_ptr).logPtr(WORKING_THREAD_TAG,msg,ptr);
+}
+
+void WorkingThreadEngine::logString(std::string msg,	std::string& msg2) {
+	if (logger_ptr)
+		(*logger_ptr).logString(WORKING_THREAD_TAG,msg,msg2);
 }

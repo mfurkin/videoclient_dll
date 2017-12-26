@@ -7,7 +7,13 @@
 
 #include "ClientRequest.h"
 #include "ClientCommon.h"
-
+std::string ClientRequest::PING_THREAD_TAG = "Ping_thread";
+std::string ClientRequest::WORKING_THREAD_TAG = "Working_thread";
+std::string ClientRequest::GETKEY_TAG="ClientRequest::getKey";
+std::string ClientRequest::DTOR_TAG="ClientRequest::desctructor";
+std::string ClientRequest::CURRENT_ERROR_REPORT_TAG="ClientRequest::currentErrorReport";
+ClientCommon* ClientRequest::clientCommon_ptr = NULL;
+// ClientCommon& ClientRequest::clCommon = ClientCommon::getClientCommon();
 ClientRequest::ClientRequest():	width(0),height(0),type(0), sourceName(std::string("empty sourceName")), destName(std::string("empty destName")),
 								engine_ptr(NULL),in_progress(0) {
 }
@@ -23,23 +29,24 @@ ClientRequest::ClientRequest(std::string aSourceName, std::string aDestName, uns
 									 	 	 	 	engine_ptr(NULL) {
 }
 ClientRequest::~ClientRequest() {
-	DebuggingTools::logPtr("ClientRequest dtor, this:",(unsigned)this);
+	logPtr(DTOR_TAG, "ClientRequest dtor, this:",(unsigned)this);
+//	DebuggingTools::logPtr("ClientRequest dtor, this:",(unsigned)this);
 }
 
 
 void ClientRequest::sendRequest() {
 	unsigned result;
-	engine_ptr = new PingThreadEngine(width,height,type);
+	engine_ptr = new PingThreadEngine(width,height,type,clientCommon_ptr);
 	if (!((*engine_ptr).initServer(sourceName))) {
-		std::cerr<<"ClientRequest::sendRequest before currentErrorReport call\n";
+		log(PING_THREAD_TAG,"ClientRequest::sendRequest before currentErrorReport call");
 		currentErrorReport();
-		std::cerr<<"ClientRequest::sendRequest after currentErrorReport call\n";
+		log(PING_THREAD_TAG,"ClientRequest::sendRequest after currentErrorReport call");
 	} else {
 		unsigned i = 0;
 			unsigned short answered;
 			in_progress = 1;
 			(*engine_ptr).startProcessingThread(processRequest,this);
-			std::cerr<<"ClientRequest::sendRequest before loop\n";
+			log(PING_THREAD_TAG,"ClientRequest::sendRequest before loop");
 			answered = 0;
 			switch(i) {
 				for (;in_progress && (result = (*engine_ptr).getResponseMessage(&answered));) {
@@ -72,16 +79,19 @@ void ClientRequest::currentErrorReport() {
 	std::string dateSt = getTimeSt(&curTime);
 	std::string key = getKey();
 //	std::cerr<<"currentErrorReport pt2"<<key<<"\n";
-	DebuggingTools::logPtr("currentErrorReport this:",(unsigned)this);
-	ClientCommon::getClientCommon().addError(key,*this,curTime,dateSt);
+//	DebuggingTools::logPtr("currentErrorReport this:",(unsigned)this);
+	logPtr(CURRENT_ERROR_REPORT_TAG,"currentErrorReport this:",(unsigned)this);
+	(*clientCommon_ptr).addError(key,*this,curTime,dateSt);
+//	ClientCommon::getClientCommon().addError(key,*this,curTime,dateSt);
 //	ClientCommon::getClientCommon().addError(getKey(),*this,curTime,dateSt);
 //	std::cerr<<"currentErrorReport exit\n";
 }
-
+/*
 std::string ClientRequest::generateName(std::string& first,	std::string second) {
 
 	return first.append(second);
 }
+*/
 
 unsigned __attribute__((__stdcall__)) ClientRequest::processRequest(void* p) {
 	ClientRequest* ptr = (ClientRequest*) p;
@@ -89,16 +99,21 @@ unsigned __attribute__((__stdcall__)) ClientRequest::processRequest(void* p) {
 }
 
 unsigned ClientRequest::processThisRequest() {
-	std::cerr<<"ClientRequest::processThisRequest enter\n";
+//	std::cerr<<"ClientRequest::processThisRequest enter\n";
+	log(WORKING_THREAD_TAG,"ClientRequest::processThisRequest enter");
 	WorkingThreadEngine engine = (*engine_ptr).getWorkingThreadEngine(&in_progress,destName);
 	engine.writeConvertedFile(in_progress);
-	std::cerr<<"ClientRequest::processThisRequest exit\n";
+	log(WORKING_THREAD_TAG,"ClientRequest::processThisRequest exit");
+//	std::cerr<<"ClientRequest::processThisRequest exit\n";
 	return 0;
 }
 
 std::string ClientRequest::getKey() {
-	std::cerr<<"ClientRequest::getKey enter sourceName="<<sourceName<<" destname="<<destName<<"\n";
-	DebuggingTools::logPtr("ClientRequest::getKey",(unsigned)this);
+//	std::cerr<<"ClientRequest::getKey enter sourceName="<<sourceName<<" destname="<<destName<<"\n";
+	logString(GETKEY_TAG,"ClientRequest::getKey enter sourceName=",sourceName);
+	logString(GETKEY_TAG,"ClientRequest::getKey enter destname=",destName);
+	logPtr(GETKEY_TAG,"ClientRequest::getKey",(unsigned)this);
+//S	DebuggingTools::logPtr("ClientRequest::getKey",(unsigned)this);
 	std::string result = sourceName;
 //	return sourceName.append("->").append(destName);
 	return result.append("->").append(destName);
@@ -114,7 +129,7 @@ void ClientRequest::unregisterRequest(ClientCommon& commonClient) {
 }
 
 std::string ClientRequest::getConvType() {
-	return ClientCommon::getClientCommon().getConvTypeSt(type);
+	return (*clientCommon_ptr).getConvTypeSt(type);
 }
 
 std::string ClientRequest::toString() {
@@ -123,4 +138,20 @@ std::string ClientRequest::toString() {
 	sprintf(st,"%s %d %d %s %s",sourceName.c_str(),width,height,getConvType().c_str(),destName.c_str());
 //	std::cerr<<"ClientRequest::toString exit\n";
 	return std::string(st);
+}
+
+void ClientRequest::log(std::string& tag, std::string msg) {
+	(*clientCommon_ptr).log(tag,msg);
+}
+
+void ClientRequest::logPtr(std::string& tag, std::string msg, unsigned ptr) {
+	(*clientCommon_ptr).logPtr(tag,msg,ptr);
+}
+
+void ClientRequest::logString(std::string& tag,	std::string msg, std::string& msg2) {
+	(*clientCommon_ptr).logString(tag,msg,msg2);
+}
+
+void ClientRequest::setClientCommon(ClientCommon* aClientCommon) {
+	clientCommon_ptr = aClientCommon;
 }

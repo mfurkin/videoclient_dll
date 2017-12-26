@@ -2,7 +2,7 @@
  * EngineCreatingTools.cpp
  *
  *  Created on: 2 дек. 2017 г.
- *      Author: Алёна
+ *
  */
 
 #include "EngineCreatingTools.h"
@@ -20,7 +20,7 @@ int EngineCreatingTools::createSharedMemory(std::string name, unsigned sizeLow, 
 	if (!(*filemap_ptr))
 		result = FALSE;
 	else{
-		std::cerr<<"createSharedMemory name= "<<name<<" length="<<name.length()<<" createFileMapping not null error code="<<GetLastError()<<"\n";
+//		std::cerr<<"createSharedMemory name= "<<name<<" length="<<name.length()<<" createFileMapping not null error code="<<GetLastError()<<"\n";
 		*pptr = (uint8_t*)  MapViewOfFile(*filemap_ptr,mapRights,0,0,sizeLow);
 		result = (int)*pptr;
 	}

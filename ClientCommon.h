@@ -12,7 +12,7 @@
 #include <algorithm>
 #include <ctime>
 #include <map>
-#include  <set>
+#include <set>
 #include <fstream>
 #include <ios>
 #include <iostream>
@@ -24,8 +24,10 @@
 #include <winbase.h>
 #include <windef.h>
 #include <windows.h>
-#include "DebuggingTools.h"
+// #include "DebuggingTools.h"
 #include "ErrorReport.h"
+#include "LoggerTypes.h"
+#include "LoggerEngine.h"
 #include "server_names.h"
 /*
 typedef struct {
@@ -50,12 +52,11 @@ class ClientRequest;
 
 class ErrorReport;
 
-class ClientCommon{
+class ClientCommon : public LoggerEngine {
 public:
 	static ClientCommon& getClientCommon();
 	static void deleteError(std::pair<std::string,ErrorReport*> aPair);
 	static void deleteInProgress(std::pair<std::string, ClientRequest*> aPair);
-//	static void saveThisError(std::string key);
 	unsigned getTypeId(std::string convSt);
 	virtual ~ClientCommon();
 	void addError(std::string key, ClientRequest& request, time_t time, std::string date_st);			// сообщить об ошибке
@@ -68,9 +69,13 @@ public:
 	int isInProgress(std::string key);
 	void saveState();
 	std::string getConvTypeSt(int type);
-
+	void log(std::string& tag,  std::string msg);
+	void logPtr(std::string& tag, std::string msg, unsigned ptr);
+	void logString(std::string& tag, std::string msg, std::string& msg2);
 private:
+	static std::string CLIENT_LOG_NAME,CLIENT_COMMON_TAG;
 	ClientCommon();
+	void initLogger();
 //	void deleteHandle(std::string destName);
 	void initConvTypeMap();
 	int makeSureFileExists(const char* fname, int isFile);
@@ -79,6 +84,9 @@ private:
 	unsigned short getKeySize();
 	void init();
 	void addThisErrorFromChar(const char* buf);
+	void createLogger(std::string& name, std::string& fname);
+	void deleteLogger(std::string& name);
+
 //	std::string getTimeSt(time_t* time);
 	ErrorReport getInfo(const char* buf);
 
@@ -90,6 +98,10 @@ private:
 //	std::queue<std::string> errors_queue;
 	std::deque<std::string> errors_deque;
 	static std::ostream* writeLog_ptr;
+	CreateLoggerProc createLoggerProc;
+	LogProc logProc;
+	LogPtrProc logPtrProc;
+	DeleteLoggerProc deleteLoggerProc;
 };
 ClientRequest* buildClientRequest(char* params[]);
 enum { SOURCE_NAME_NUMBER=1, WIDTH_NUMBER, HEIGHT_NUMBER, TYPE_NUMBER, DEST_FILE_NUMBER };

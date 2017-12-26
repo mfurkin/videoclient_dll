@@ -5,8 +5,9 @@
  *
  */
 #include "ClientCommon.h"
-
-ClientCommon::ClientCommon() {
+std::string ClientCommon::CLIENT_LOG_NAME = "Client";
+std::string ClientCommon::CLIENT_COMMON_TAG = "ClientCommon";
+ClientCommon::ClientCommon():createLoggerProc(NULL),logProc(NULL),logPtrProc(NULL),deleteLoggerProc(NULL) {
 
 	errorsMutex = CreateMutex(NULL,TRUE,NULL);
 	inProgressMutex = CreateMutex(NULL,TRUE,NULL);
@@ -39,11 +40,14 @@ int ClientCommon::makeSureFileExists(const char* fname, int isFile) {
 	WIN32_FIND_DATA findData;
 	findPath = FindFirstFile(fname,&findData);
 	int result = (findPath != INVALID_HANDLE_VALUE);
-	if (result)
-		std::cerr<<"Search successful fname:"<<fname<<"\n";
-	else {
+	if (result) {
+//		std::cerr<<"Search successful fname:"<<fname<<"\n";
+		std::string fname_st(fname);
+		logString(CLIENT_COMMON_TAG,"Search successful fname:",fname_st);
+	} else {
 		unsigned long errCode = GetLastError();
-		std::cerr<<"Error during log opening error code="<<errCode<<"\n";
+		logPtr(CLIENT_COMMON_TAG,"Error during log opening error code=",errCode);
+//		std::cerr<<"Error during log opening error code="<<errCode<<"\n";
 		if (!(isFile))
 			CreateDirectory(fname,NULL);
 		else {
@@ -105,29 +109,40 @@ void ClientCommon::init() {
 	std::filebuf fb;
 	const char* buf;
 	initConvTypeMap();
-	std::cerr<<"ClientCommon::init pt1 logFname="<<logFname<<"\n";
+	initLogger();
+//	std::cerr<<"ClientCommon::init pt1 logFname="<<logFname<<"\n";
+	logString(CLIENT_COMMON_TAG,"ClientCommon::init pt1 logFname=",logFname);
 	if (makeSureFileExists(logFname.c_str(),TRUE)) {
-		std::cerr<<"ClientCommon::init pt2\n";
+//		std::cerr<<"ClientCommon::init pt2\n";
+		log(CLIENT_COMMON_TAG,"ClientCommon::init pt2");
 		fb.open(logFname.c_str(),std::ios::in);
 		std::istream readLogFile(&fb);
-		std::cerr<<"ClientCommon::init pt3\n";
+//		std::cerr<<"ClientCommon::init pt3\n";
+		log(CLIENT_COMMON_TAG,"ClientCommon::init pt3");
 		for(;(!(readLogFile.eof()));) {
 			std::string st;
-			std::cerr<<"ClientCommon::init pt4\n";
+//			std::cerr<<"ClientCommon::init pt4\n";
+			log(CLIENT_COMMON_TAG,"ClientCommon::init pt4");
 			std::getline(readLogFile,st);
-			std::cerr<<"ClientCommon::init pt4.1 st="<<st<<"\n";
+//			std::cerr<<"ClientCommon::init pt4.1 st="<<st<<"\n";
+			logString(CLIENT_COMMON_TAG,"ClientCommon::init pt4.1 st=",st);
 			if (st.empty())
 				break;
-			std::cerr<<"ClientCommon::init pt5\n";
+//			std::cerr<<"ClientCommon::init pt5\n";
+			log(CLIENT_COMMON_TAG,"ClientCommon::init pt5");
 			buf = st.c_str();
-			std::cerr<<"ClientCommon::init pt5.1 st="<<st<<"\n";
+//			std::cerr<<"ClientCommon::init pt5.1 st="<<st<<"\n";
+			logString(CLIENT_COMMON_TAG,"ClientCommon::init pt5.1 st=",st);
 			addThisErrorFromChar(buf);
-			std::cerr<<"ClientCommon::init pt6\n";
+//			std::cerr<<"ClientCommon::init pt6\n";
+			log(CLIENT_COMMON_TAG,"ClientCommon::init pt6");
 		}
-		std::cerr<<"ClientCommon::init pt7\n";
+//		std::cerr<<"ClientCommon::init pt7\n";
+		log(CLIENT_COMMON_TAG,"ClientCommon::init pt7");
 		fb.close();
 	}
-	std::cerr<<"ClientCommon::init exit\n";
+	log(CLIENT_COMMON_TAG,"ClientCommon::init exit");
+//	std::cerr<<"ClientCommon::init exit\n";
 }
 
 int ClientCommon::isInProgress(std::string key) {
@@ -214,7 +229,6 @@ void ClientCommon::sendNewRequest(ClientRequest& req) {
 	if (result)
 		req.sendRequest();
 	req.unregisterRequest(*this);
-//	std::cerr<<"ClientCommon::sendNewRequest exit\n";
 }
 
 void ClientCommon::repeatRequest() {
@@ -231,7 +245,7 @@ void ClientCommon::addThisErrorFromChar(const char* buf) {
 //	std::cerr<<"ClientCommon::addThisErrorFromChar enter\n";
 	ErrorReport* req = new ErrorReport(getInfo(buf));
 //	std::cerr<<"ClientCommon::addThisErrorFromChar pt1\n";
-	(*req).pastErrorReport(*this);
+	(*req).addThisError(*this);
 //	std::cerr<<"ClientCommon::addThisErrorFromChar exit\n";
 }
 
@@ -349,13 +363,15 @@ void ClientCommon::saveState() {
 //		std::cerr<<"savestate pt7 curKey="<<curKey<<"\n";
 		ErrorReport* ptr = errors[curKey];
 //		ErrorReport* ptr = errors[*it_errors++];
-		std::cerr<<"savestate pt8\n";
-		DebuggingTools::logPtr("ClientCommon::saveState ptr=",(unsigned)ptr);
+//		std::cerr<<"savestate pt8\n";
+//		DebuggingTools::logPtr("ClientCommon::saveState ptr=",(unsigned)ptr);
+		logPtr(CLIENT_COMMON_TAG,"ClientCommon::saveState ptr=",(unsigned)ptr);
 //		std::cerr<<"savestate pt8.1\n";
 		writeLogFile<<(*ptr).toString()<<"\n";
 //		std::cerr<<"savestate pt9\n";
 	}
-	std::cerr<<"savestate pt10\n";
+	log(CLIENT_COMMON_TAG,"savestate pt10");
+//	std::cerr<<"savestate pt10\n";
 	ReleaseMutex(errorsMutex);
 //	std::cerr<<"savestate pt11\n";
 	fb.close();
@@ -370,4 +386,40 @@ std::string ClientCommon::getConvTypeSt(int type) {
 //	std::cerr<<"ClientCommon::getConvTypeSt type="<<type<<"\n";
 	std::string typesSt[5] = {YUV420toRGB24_st,  YUV422toRGB24_st, RGB24toYUV420_st,  RGB24toYUV422_st, YUV420toYUV422_st};
 	return typesSt[type-1];
+}
+
+void ClientCommon::initLogger() {
+	HMODULE hDll = LoadLibrary("liblogger.dll");
+	createLoggerProc = (CreateLoggerProc) GetProcAddress(hDll,"createLogger");
+	logProc = (LogProc) GetProcAddress(hDll,"log");
+	logPtrProc = (LogPtrProc) GetProcAddress(hDll,"logPtr");
+	deleteLoggerProc = (DeleteLoggerProc) GetProcAddress(hDll,"deleteLogger");
+	std::string fname = getLogPath();
+	fname.append("\\client.log");
+	createLogger(CLIENT_LOG_NAME,fname);
+}
+
+void ClientCommon::createLogger(std::string& name, std::string& fname) {
+	if (createLoggerProc)
+		createLoggerProc(name.c_str(),fname.c_str());
+}
+
+void ClientCommon::deleteLogger(std::string& name) {
+	if (deleteLoggerProc)
+		deleteLoggerProc(name.c_str());
+}
+
+void ClientCommon::log(std::string& tag, std::string msg) {
+	if (logProc)
+		logProc(CLIENT_LOG_NAME.c_str(),tag.c_str(),msg.c_str());
+}
+
+void ClientCommon::logPtr(std::string& tag, std::string msg, unsigned ptr) {
+	if  (logPtrProc)
+		logPtrProc(CLIENT_LOG_NAME.c_str(),tag.c_str(),msg.c_str(),ptr);
+}
+
+void ClientCommon::logString( std::string& tag, std::string msg, std::string& msg2) {
+	std::string msgAll = msg.append(msg2);
+	log(tag,msgAll);
 }

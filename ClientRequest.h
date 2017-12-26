@@ -20,12 +20,12 @@
 #include "AbortedStatusWriter.h"
 #include "CompletedStatusWriter.h"
 #include "PingThreadEngine.h"
-// #include "ErrorReport.h"
+
 #include "InProgressStatusWriter.h"
 #include "ReceivedStatusWriter.h"
 
 class ClientCommon;
-
+// class PingThreadEngine;
 
 class ClientRequest {
 public:
@@ -35,17 +35,22 @@ public:
 	virtual ~ClientRequest();
 	int registerRequest(ClientCommon& commonClient);
 	void unregisterRequest(ClientCommon& commonClient);
-//	ClientRequest(std::string aSourceName, std::string aDestName, unsigned short aWidth, unsigned short aHeight, unsigned short aType, ErrorReport* req_ptr);
-//	static VOID CALLBACK writeCompletedProc( DWORD dwErrorCode, DWORD dwNumberOfBytesTransfered, LPOVERLAPPED lpOverlapped);
 	static unsigned WINAPI processRequest(void* ptr);
 	static std::string getTimeSt(time_t* time);
+	static void setClientCommon(ClientCommon* aClientCommon);
 	virtual std::string toString();
 	void currentErrorReport();
 	void sendRequest();
 protected:
+	static ClientCommon* clientCommon_ptr;
 	std::string getConvType();
 	std::string getKey();
+	void log(std::string& tag,  std::string msg);
 private:
+	void logPtr(std::string& tag, std::string msg, unsigned ptr);
+	void logString(std::string& tag, std::string msg, std::string& msg2);
+	static std::string PING_THREAD_TAG,WORKING_THREAD_TAG,GETKEY_TAG,DTOR_TAG,CURRENT_ERROR_REPORT_TAG;
+//	static ClientCommon& clCommon;
 	/*
 	void initStatusWriters(std::map<int,StatusWriter*>& writers);
 	void deinitStatusWriters(std::map<int,StatusWriter*>& writers);
@@ -64,7 +69,7 @@ private:
 	int createSharedMemory(std::string name, unsigned sizeLow, unsigned rights, unsigned MapRights, HANDLE* filemap_ptr, uint8_t** pptr);
 	*/
 //	void closeHandle(HANDLE aHandle);
-	std::string generateName(std::string& first, std::string second);
+//	std::string generateName(std::string& first, std::string second);
 //	void setCopied();
 //	void init();
 //	ErrorReport*  createErrorReport();
