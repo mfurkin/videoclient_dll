@@ -25,29 +25,12 @@
 #include <windef.h>
 #include <windows.h>
 // #include "DebuggingTools.h"
+#include "FileUtils.h"
 #include "ErrorReport.h"
 #include "LoggerTypes.h"
 #include "LoggerEngine.h"
 #include "server_names.h"
-/*
-typedef struct {
-	unsigned short width,height;
-	unsigned char type;
-	char source_name[MAX_PATH],dest_name[MAX_PATH];
-} RequestClientDataStruct;
-typedef struct {
-	RequestClientDataStruct req;
-	char date_st[15];
-	time_t date;
-} LoggingDataStruct;
 
-const std::string YUV420toRGB24_st="YUV420toRGB24";
-const std::string YUV422toRGB24_st="YUV422toRGB24";
-const std::string RGB24toYUV420_st = "RGB24toYUV420";
-const std::string RGB24toYUV422_st = "RGB24toYUV422";
-const std::string YUV420toYUV422_st = "YUV420toYUV422";
-
-*/
 class ClientRequest;
 
 class ErrorReport;
@@ -73,34 +56,35 @@ public:
 	void logPtr(std::string& tag, std::string msg, unsigned ptr);
 	void logString(std::string& tag, std::string msg, std::string& msg2);
 private:
-	static std::string CLIENT_LOG_NAME,CLIENT_COMMON_TAG;
+	static std::string CLIENT_LOG_NAME,CLIENT_COMMON_TAG,CLIENT_LOG_DIR_NAME,CLIENT_LOG_FILE_NAME;
 	ClientCommon();
-	void initLogger();
+	int initLogger();
 	void initConvTypeMap();
+	int initFileUtils();
 	int makeSureFileExists(const char* fname, int isFile);
-	std::string getLogFname();
-	std::string getLogPath();
+	std::string getErrorsLogFname();
+	std::string getLogPath(LoggerEngine* logger_ptr);
 	unsigned short getKeySize();
 	void init();
 	void addThisErrorFromChar(const char* buf);
 	void createLogger(std::string& name, std::string& fname);
 	void deleteLogger(std::string& name);
 
-//	std::string getTimeSt(time_t* time);
 	ErrorReport getInfo(const char* buf);
 
 	HANDLE errorsMutex,inProgressMutex;
-//	std::map<std::string,ClientRequest*> readers;
 	std::map<std::string,ClientRequest*> inProgress;
 	std::map<std::string,ErrorReport*> errors;
 	std::map<std::string,unsigned> convTypes;
-//	std::queue<std::string> errors_queue;
 	std::deque<std::string> errors_deque;
 	static std::ostream* writeLog_ptr;
+	int inited,fileUtilsInited;
 	CreateLoggerProc createLoggerProc;
 	LogProc logProc;
 	LogPtrProc logPtrProc;
 	DeleteLoggerProc deleteLoggerProc;
+	GetLogPathProc getLogPathProc;
+	GetLogFnameProc getLogFnameProc;
 };
 ClientRequest* buildClientRequest(char* params[]);
 enum { SOURCE_NAME_NUMBER=1, WIDTH_NUMBER, HEIGHT_NUMBER, TYPE_NUMBER, DEST_FILE_NUMBER };

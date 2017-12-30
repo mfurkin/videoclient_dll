@@ -7,6 +7,8 @@
 #include "ClientCommon.h"
 std::string ClientCommon::CLIENT_LOG_NAME = "Client";
 std::string ClientCommon::CLIENT_COMMON_TAG = "ClientCommon";
+std::string ClientCommon::CLIENT_LOG_DIR_NAME="\\videoclient";
+std::string ClientCommon::CLIENT_LOG_FILE_NAME="\\videoclient.log";
 ClientCommon::ClientCommon():createLoggerProc(NULL),logProc(NULL),logPtrProc(NULL),deleteLoggerProc(NULL) {
 
 	errorsMutex = CreateMutex(NULL,TRUE,NULL);
@@ -22,11 +24,17 @@ ClientCommon::~ClientCommon() {
 	CloseHandle(inProgressMutex);
 }
 
-std::string ClientCommon::getLogFname() {
-	char path[MAX_PATH];
-	strcpy(path,getLogPath().c_str());
-	strcat(path,"\\videoclient.log");
-	return path;
+std::string ClientCommon::getErrorsLogFname() {
+
+	std::string result;
+	if (!(inited))
+		result = "";
+	else {
+		static char res[MAX_PATH];
+		getLogFnameProc((char*)res,(char*)CLIENT_LOG_DIR_NAME.c_str(),(char*)CLIENT_LOG_FILE_NAME.c_str(),NULL);
+		result = std::string(res);
+	}
+	return result;
 }
 
 
@@ -36,13 +44,11 @@ int ClientCommon::makeSureFileExists(const char* fname, int isFile) {
 	findPath = FindFirstFile(fname,&findData);
 	int result = (findPath != INVALID_HANDLE_VALUE);
 	if (result) {
-//		std::cerr<<"Search successful fname:"<<fname<<"\n";
 		std::string fname_st(fname);
 		logString(CLIENT_COMMON_TAG,"Search successful fname:",fname_st);
 	} else {
 		unsigned long errCode = GetLastError();
 		logPtr(CLIENT_COMMON_TAG,"Error during log opening error code=",errCode);
-//		std::cerr<<"Error during log opening error code="<<errCode<<"\n";
 		if (!(isFile))
 			CreateDirectory(fname,NULL);
 		else {
@@ -60,14 +66,16 @@ int ClientCommon::makeSureFileExists(const char* fname, int isFile) {
 	return result;
 }
 
-std::string ClientCommon::getLogPath() {
-	char path[MAX_PATH];
-
-	SHGetFolderPath(NULL,CSIDL_APPDATA,NULL,SHGFP_TYPE_CURRENT,path);
-	makeSureFileExists(path,FALSE);
-	strcat(path,"\\videoclient");
-	makeSureFileExists(path,FALSE);
-	return path;
+std::string ClientCommon::getLogPath(LoggerEngine* logger_ptr) {
+	std::string result;
+	if (!(fileUtilsInited))
+		result = "";
+	else {
+		static char res[MAX_PATH];
+		getLogPathProc((char*)res,(char*)CLIENT_LOG_DIR_NAME.c_str(),logger_ptr);
+		result = std::string(res);
+	}
+	return result;
 }
 
 char* getString(const char* delims) {
@@ -100,41 +108,44 @@ unsigned short ClientCommon::getKeySize() {
 
 void ClientCommon::init() {
 
-	std::string logFname = getLogFname();
+	std::string logFname = getErrorsLogFname();
 	std::filebuf fb;
 	const char* buf;
 	initConvTypeMap();
 	initLogger();
+	initFileUtils();
+	inited = initFileUtils() && initLogger();
+	if (inited) {
+		logString(CLIENT_COMMON_TAG,"ClientCommon::init pt1 logFname=",logFname);
+		if (makeSureFileExists(logFname.c_str(),TRUE)) {
 
-	logString(CLIENT_COMMON_TAG,"ClientCommon::init pt1 logFname=",logFname);
-	if (makeSureFileExists(logFname.c_str(),TRUE)) {
+			log(CLIENT_COMMON_TAG,"ClientCommon::init pt2");
+			fb.open(logFname.c_str(),std::ios::in);
+			std::istream readLogFile(&fb);
 
-		log(CLIENT_COMMON_TAG,"ClientCommon::init pt2");
-		fb.open(logFname.c_str(),std::ios::in);
-		std::istream readLogFile(&fb);
+			log(CLIENT_COMMON_TAG,"ClientCommon::init pt3");
+			for(;(!(readLogFile.eof()));) {
+				std::string st;
 
-		log(CLIENT_COMMON_TAG,"ClientCommon::init pt3");
-		for(;(!(readLogFile.eof()));) {
-			std::string st;
+				log(CLIENT_COMMON_TAG,"ClientCommon::init pt4");
+				std::getline(readLogFile,st);
 
-			log(CLIENT_COMMON_TAG,"ClientCommon::init pt4");
-			std::getline(readLogFile,st);
+				logString(CLIENT_COMMON_TAG,"ClientCommon::init pt4.1 st=",st);
+				if (st.empty())
+					break;
 
-			logString(CLIENT_COMMON_TAG,"ClientCommon::init pt4.1 st=",st);
-			if (st.empty())
-				break;
+				log(CLIENT_COMMON_TAG,"ClientCommon::init pt5");
+				buf = st.c_str();
 
-			log(CLIENT_COMMON_TAG,"ClientCommon::init pt5");
-			buf = st.c_str();
+				logString(CLIENT_COMMON_TAG,"ClientCommon::init pt5.1 st=",st);
+				addThisErrorFromChar(buf);
 
-			logString(CLIENT_COMMON_TAG,"ClientCommon::init pt5.1 st=",st);
-			addThisErrorFromChar(buf);
+				log(CLIENT_COMMON_TAG,"ClientCommon::init pt6");
+			}
 
-			log(CLIENT_COMMON_TAG,"ClientCommon::init pt6");
+			log(CLIENT_COMMON_TAG,"ClientCommon::init pt7");
+			fb.close();
 		}
-
-		log(CLIENT_COMMON_TAG,"ClientCommon::init pt7");
-		fb.close();
 	}
 	log(CLIENT_COMMON_TAG,"ClientCommon::init exit");
 
@@ -211,22 +222,25 @@ void ClientCommon::unregisterRequest(std::string key) {
 
 void ClientCommon::sendNewRequest(ClientRequest& req) {
 	int result;
-	WaitForSingleObjectEx(inProgressMutex,INFINITE,TRUE);
-	result = req.registerRequest(*this);
-	ReleaseMutex(inProgressMutex);
-	if (result)
-		req.sendRequest();
-	req.unregisterRequest(*this);
+	if (inited) {
+		WaitForSingleObjectEx(inProgressMutex,INFINITE,TRUE);
+			result = req.registerRequest(*this);
+		ReleaseMutex(inProgressMutex);
+		if (result)
+			req.sendRequest();
+		req.unregisterRequest(*this);
+	}
 }
 
 void ClientCommon::repeatRequest() {
-	WaitForSingleObjectEx(errorsMutex,INFINITE,TRUE);
-	std::string st = errors_deque.front();
-	ErrorReport* report = errors[st];
-	(*report).sendRequest();
-	errors_deque.pop_front();
-
-	ReleaseMutex(errorsMutex);
+	if (inited) {
+		WaitForSingleObjectEx(errorsMutex,INFINITE,TRUE);
+			std::string st = errors_deque.front();
+			ErrorReport* report = errors[st];
+			(*report).sendRequest();
+			errors_deque.pop_front();
+		ReleaseMutex(errorsMutex);
+	}
 }
 
 void ClientCommon::addThisErrorFromChar(const char* buf) {
@@ -253,9 +267,14 @@ void ClientCommon::addThisError(std::string key,  ErrorReport*  report) {
 }
 
 int ClientCommon::isErrorQueueEmpty() {
-	WaitForSingleObjectEx(errorsMutex,INFINITE,TRUE);
-	int result = errors_deque.empty();
-	ReleaseMutex(errorsMutex);
+	int result;
+	if (!(inited))
+		result = TRUE;
+	else {
+		WaitForSingleObjectEx(errorsMutex,INFINITE,TRUE);
+		result = errors_deque.empty();
+		ReleaseMutex(errorsMutex);
+	}
 	return result;
 
 }
@@ -315,7 +334,7 @@ int __attribute__((dllexport)) errorsExist() {
 void ClientCommon::saveState() {
 	std::filebuf fb;
 
-	fb.open(getLogFname().c_str(),std::ios::out);
+	fb.open(getErrorsLogFname().c_str(),std::ios::out);
 	std::ostream writeLogFile(&fb);
 
 	WaitForSingleObjectEx(inProgressMutex,INFINITE,TRUE);
@@ -359,21 +378,43 @@ std::string ClientCommon::getConvTypeSt(int type) {
 	return typesSt[type-1];
 }
 
-void ClientCommon::initLogger() {
+int ClientCommon::initLogger() {
+	int result = TRUE;
 	HMODULE hDll = LoadLibrary("liblogger.dll");
-	createLoggerProc = (CreateLoggerProc) GetProcAddress(hDll,"createLogger");
-	logProc = (LogProc) GetProcAddress(hDll,"log");
-	logPtrProc = (LogPtrProc) GetProcAddress(hDll,"logPtr");
-	deleteLoggerProc = (DeleteLoggerProc) GetProcAddress(hDll,"deleteLogger");
-	std::string fname = getLogPath();
-	fname.append("\\client.log");
-	createLogger(CLIENT_LOG_NAME,fname);
+	if (!(hDll))
+		result = 0;
+	else {
+		createLoggerProc = (CreateLoggerProc) GetProcAddress(hDll,"createLogger");
+		logProc = (LogProc) GetProcAddress(hDll,"log");
+		logPtrProc = (LogPtrProc) GetProcAddress(hDll,"logPtr");
+		deleteLoggerProc = (DeleteLoggerProc) GetProcAddress(hDll,"deleteLogger");
+		std::string fname = getLogPath(NULL);
+		fname.append("\\client.log");
+		createLogger(CLIENT_LOG_NAME,fname);
+	}
+	return result;
 }
 
 void ClientCommon::createLogger(std::string& name, std::string& fname) {
 	if (createLoggerProc)
 		createLoggerProc(name.c_str(),fname.c_str());
 }
+
+int ClientCommon::initFileUtils() {
+	int result = TRUE;
+	HMODULE hDll = LoadLibrary("fileutils.dll");
+	if (!(hDll))
+		result = FALSE;
+	else {
+		getLogPathProc  = (GetLogPathProc) GetProcAddress(hDll,"getLogPath");
+		getLogFnameProc = (GetLogFnameProc) GetProcAddress(hDll,"getLogFname");
+		result = getLogPathProc && getLogFnameProc;
+	}
+	fileUtilsInited = result;
+	return result;
+}
+
+
 
 void ClientCommon::deleteLogger(std::string& name) {
 	if (deleteLoggerProc)
