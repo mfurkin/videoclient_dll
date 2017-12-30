@@ -8,7 +8,7 @@
 #ifndef SRC_CLIENT_H_
 #define SRC_CLIENT_H_
 
-#define _WIN32_IE 0x0500
+
 #include <algorithm>
 #include <ctime>
 #include <map>
@@ -24,7 +24,7 @@
 #include <winbase.h>
 #include <windef.h>
 #include <windows.h>
-// #include "DebuggingTools.h"
+
 #include "FileUtils.h"
 #include "ErrorReport.h"
 #include "LoggerTypes.h"
